@@ -38,8 +38,12 @@ export class GameApp {
     this.mapRenderer.init();
     
     socket.onMessage((packet) => {
-      this.entityRenderer.handlePacket(packet);
+      const moveResult = this.entityRenderer.handlePacket(packet);
       
+      if (moveResult?.playerMoved) {
+        this.camera.centerOn(moveResult.x, moveResult.y, this.app.screen.width, this.app.screen.height);
+      }
+
       if ("SystemMessage" in packet) {
         this.ui.addMessage(packet.SystemMessage.message);
       }
@@ -48,7 +52,13 @@ export class GameApp {
     socket.connect();
 
     this.app.ticker.add(() => {
-      // Game loop logic (inputs, etc)
+      this.keyboard.update();
+      
+      // Keep camera centered even if window resizes
+      const playerPos = this.entityRenderer.getPlayerPosition();
+      if (playerPos) {
+        this.camera.centerOn(playerPos.x, playerPos.y, this.app.screen.width, this.app.screen.height);
+      }
     });
   }
 
