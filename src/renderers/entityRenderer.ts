@@ -1,95 +1,57 @@
 import * as PIXI from "pixi.js";
-import { ServerToClient } from "../protocol";
 
 export class EntityRenderer {
-  private container: PIXI.Container;
-  private entities: Map<number, PIXI.Graphics> = new Map();
-  private TILE_SIZE = 32;
-  private playerEntityId: number | null = null;
-
-  constructor(container: PIXI.Container) {
-    this.container = container;
-  }
-
-  /**
-   * Instantly moves the player sprite locally (Prediction).
-   */
-  predictMove(direction: number) {
-    if (this.playerEntityId === null) return;
-    const player = this.entities.get(this.playerEntityId);
-    if (!player) return;
-
-    if (direction === 0) player.y -= this.TILE_SIZE;      // Up
-    else if (direction === 1) player.x += this.TILE_SIZE; // Right
-    else if (direction === 2) player.y += this.TILE_SIZE; // Down
-    else if (direction === 3) player.x -= this.TILE_SIZE; // Left
-  }
-
-  /**
-   * Forcefully snaps the player to specific coordinates (Reconciliation/Rubberbanding).
-   */
-  handleResync(x: number, y: number) {
-    if (this.playerEntityId === null) return;
-    const player = this.entities.get(this.playerEntityId);
-    if (player) {
-      player.x = x * this.TILE_SIZE;
-      player.y = y * this.TILE_SIZE;
-    }
-  }
-
-  handlePacket(packet: ServerToClient) {
-    const { type, payload } = packet;
-
-    if (type === "SpawnCharacter") {
-      this.spawnCharacter(payload);
-      // Assume the first character spawned is the player for this implementation
-      if (this.playerEntityId === null) {
-        this.playerEntityId = payload.entity_id;
-      }
-    } else if (type === "EntityMove") {
-      const entity = this.entities.get(payload.entity_id);
-      if (entity) {
-        // Only update other entities; player is handled by prediction/resync
-        if (payload.entity_id !== this.playerEntityId) {
-          entity.x = payload.x * this.TILE_SIZE;
-          entity.y = payload.y * this.TILE_SIZE;
-        }
-      }
-    } else if (type === "EntityRemove") {
-      this.removeEntity(payload.entity_id);
-    }
-  }
-
-  private spawnCharacter(data: any) {
-    this.removeEntity(data.entity_id);
-
-    const graphics = new PIXI.Graphics();
-    const color = (data.entity_id * 12345) % 0xFFFFFF;
+    private container: PIXI.Container;
+    private playerSprite: PIXI.Graphics;
     
-    graphics.beginFill(color);
-    graphics.drawRect(0, 0, this.TILE_SIZE, this.TILE_SIZE);
-    graphics.endFill();
+    // Local state for smooth camera tracking and prediction
+    private targetX: number = 0;
+    private targetY: number = 0;
+    private TILE_SIZE: number = 32;
 
-    graphics.x = data.x * this.TILE_SIZE;
-    graphics.y = data.y * this.TILE_SIZE;
+    constructor(cameraContainer: PIXI.Container) {
+        this.container = new PIXI.Container();
+        cameraContainer.addChild(this.container);
 
-    this.container.addChild(graphics);
-    this.entities.set(data.entity_id, graphics);
-  }
+        // SAFE MOCK PLAYER: A simple red square. 
+        // Hardcoded 0xFF0000 ensures we never get the NaN color crash!
+        this.playerSprite = new PIXI.Graphics();
+        this.playerSprite.beginFill(0xFF0000); 
+        this.playerSprite.drawRect(0, 0, this.TILE_SIZE, this.TILE_SIZE);
+        this.playerSprite.endFill();
 
-  private removeEntity(id: number) {
-    const entity = this.entities.get(id);
-    if (entity) {
-      this.container.removeChild(entity);
-      this.entities.delete(id);
+        this.container.addChild(this.playerSprite);
     }
-  }
 
-  getPlayerPosition() {
-    if (this.playerEntityId !== null) {
-      const player = this.entities.get(this.playerEntityId);
-      if (player) return { x: player.x, y: player.y };
+    handleResync(x: number, y: number) {
+        if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return;
+        
+        // Multiply grid coordinates by TILE_SIZE to get actual pixel coordinates
+        this.targetX = x * this.TILE_SIZE;
+        this.targetY = y * this.TILE_SIZE;
+        
+        // Instantly snap the graphic to the correct server location
+        this.playerSprite.x = this.targetX;
+        this.playerSprite.y = this.targetY;
     }
-    return null;
-  }
+
+    predictMove(direction: number) {
+        // 0: Up, 1: Right, 2: Down, 3: Left
+        if (direction === 0) this.targetY -= this.TILE_SIZE; 
+        if (direction === 1) this.targetX += this.TILE_SIZE; 
+        if (direction === 2) this.targetY += this.TILE_SIZE; 
+        if (direction === 3) this.targetX -= this.TILE_SIZE; 
+        
+        // Instantly update visuals for client-side prediction
+        this.playerSprite.x = this.targetX;
+        this.playerSprite.y = this.targetY;
+    }
+
+    handlePacket(packet: any) {
+        // Future logic for handling other players/monsters spawning nearby
+    }
+
+    getPlayerPosition() {
+        return { x: this.playerSprite.x, y: this.playerSprite.y };
+    }
 }
