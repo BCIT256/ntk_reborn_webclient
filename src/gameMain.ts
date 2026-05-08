@@ -5,6 +5,7 @@ import { Camera } from "./renderers/camera";
 import { MapRenderer } from "./renderers/mapRenderer";
 import { KeyboardManager } from "./inputs/keyboard";
 import { DOMOverlay } from "./ui/domOverlay";
+import { assetManager } from "./utils/assetManager";
 
 export class GameApp {
   private app: PIXI.Application;
@@ -35,6 +36,10 @@ export class GameApp {
   }
 
   private init(initialSpawnData: any = null) {
+    // Ensure spritesheets are loaded (idempotent — safe to call even if
+    // MapLoadingScreen already loaded them)
+    assetManager.loadSpritesheets();
+
     this.mapRenderer.init();
     
     // Load initial map and position player if spawn data is provided
@@ -64,6 +69,10 @@ export class GameApp {
     // Note: socket.connect() is NOT called here because Index.tsx already manages the connection
 
     this.app.ticker.add(() => {
+      // Drive smooth entity interpolation every frame
+      const dt = this.app.ticker.elapsedMS / 1000;
+      this.entityRenderer.update(dt);
+
       this.keyboard.update((direction) => {
         this.entityRenderer.predictMove(direction);
         socket.send({ 

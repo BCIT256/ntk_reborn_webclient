@@ -20,6 +20,8 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
     const startPatching = async () => {
       try {
         await assetManager.init();
+        setStatus("Loading sprite atlases...");
+        await assetManager.loadSpritesheets();
         setStatus("Checking for updates...");
         await assetManager.syncManifest();
         
