@@ -9,9 +9,23 @@ const SNAP_THRESHOLD = 0.5; // pixels — snap when this close to target
 
 type MovementState = "idle" | "walking";
 
+export interface EntityConfig {
+  entityId: number;
+  name: string;
+  /** If true, build animations from the player atlas. */
+  isLocalPlayer?: boolean;
+  /** Fallback sprite colour when atlas is not used. */
+  fallbackColor?: number;
+  /** Tint colour for the name tag text (from SpawnCharacter.name_color). */
+  nameColor?: number;
+}
+
 export class EntityRenderer {
   private container: PIXI.Container;
   private sprite: PIXI.AnimatedSprite;
+  private nameTag: PIXI.Text;
+
+  readonly entityId: number;
 
   // Smooth-movement state
   private visualX: number = 0;
@@ -29,13 +43,17 @@ export class EntityRenderer {
 
   private TILE_SIZE: number = 32;
   private usingAtlas: boolean = false;
+  private isLocalPlayer: boolean;
 
-  constructor(cameraContainer: PIXI.Container) {
+  constructor(cameraContainer: PIXI.Container, config: EntityConfig) {
+    this.entityId = config.entityId;
+    this.isLocalPlayer = config.isLocalPlayer ?? false;
+
     this.container = new PIXI.Container();
     cameraContainer.addChild(this.container);
 
-    // Try to build animations from the player spritesheet
-    this.usingAtlas = assetManager.hasSpritesheet("player_base");
+    // Build sprite — local player gets atlas animations, others get coloured fallback
+    this.usingAtlas = this.isLocalPlayer && assetManager.hasSpritesheet("player_base");
 
     if (this.usingAtlas) {
       this.buildAnimationCache();
@@ -47,18 +65,31 @@ export class EntityRenderer {
         this.currentAnimationKey = "idle_down";
         this.sprite.play();
       } else {
-        // Atlas loaded but no matching frames — fall back to coloured sprite
-        console.warn(
-          "Player atlas loaded but no idle_down frames found, using fallback sprite"
-        );
+        console.warn("Player atlas loaded but no idle_down frames — using fallback");
         this.usingAtlas = false;
-        this.sprite = this.createFallbackAnimatedSprite(0xff0000);
+        this.sprite = this.createFallbackAnimatedSprite(config.fallbackColor ?? 0xff0000);
       }
     } else {
-      this.sprite = this.createFallbackAnimatedSprite(0xff0000);
+      const color = config.fallbackColor ?? 0x4488ff; // default remote colour: blue
+      this.sprite = this.createFallbackAnimatedSprite(color);
     }
 
     this.container.addChild(this.sprite);
+
+    // ─── Name tag ───────────────────────────────────────────────────
+    const tagColor = config.nameColor ? `#${config.nameColor.toString(16).padStart(6, "0")}` : "#ffffff";
+    this.nameTag = new PIXI.Text(config.name, {
+      fontFamily: "Arial, sans-serif",
+      fontSize: 11,
+      fill: tagColor,
+      stroke: "#000000",
+      strokeThickness: 3,
+      align: "center",
+    } as PIXI.TextStyle);
+    this.nameTag.anchor.set(0.5, 1);
+    this.nameTag.x = this.TILE_SIZE / 2;
+    this.nameTag.y = -4;
+    this.container.addChild(this.nameTag);
   }
 
   // ─── Public API ─────────────────────────────────────────────────────
@@ -76,6 +107,17 @@ export class EntityRenderer {
     this.sprite.y = this.visualY;
 
     this.setIdle();
+  }
+
+  /**
+   * Move to an explicit target tile (used by EntityMove for remote entities).
+   * Interpolates smoothly from current visual position to the given tile.
+   */
+  moveToTarget(x: number, y: number, direction: number) {
+    this.direction = direction;
+    this.targetX = x * this.TILE_SIZE;
+    this.targetY = y * this.TILE_SIZE;
+    this.setWalking();
   }
 
   predictMove(direction: number) {
@@ -117,12 +159,16 @@ export class EntityRenderer {
     this.sprite.y = this.visualY;
   }
 
-  handlePacket(_packet: any) {
-    // Future logic for handling other players/monsters spawning nearby
-  }
-
   getPlayerPosition() {
     return { x: this.visualX, y: this.visualY };
+  }
+
+  /** Remove this entity from the stage and clean up. */
+  destroy() {
+    if (this.container.parent) {
+      this.container.parent.removeChild(this.container);
+    }
+    this.container.destroy({ children: true });
   }
 
   // ─── Animation state machine ───────────────────────────────────────
@@ -182,9 +228,27 @@ export class EntityRenderer {
     canvas.width = this.TILE_SIZE;
     canvas.height = this.TILE_SIZE;
     const ctx = canvas.getContext("2d")!;
+
+    // Body
     const hex = "#" + color.toString(16).padStart(6, "0");
     ctx.fillStyle = hex;
-    ctx.fillRect(0, 0, this.TILE_SIZE, this.TILE_SIZE);
+    const margin = 6;
+    const bodyW = this.TILE_SIZE - margin * 2;
+    const bodyH = this.TILE_SIZE - margin * 2;
+    ctx.fillRect(margin, margin, bodyW, bodyH);
+
+    // Simple "face" — two eyes + a darker outline
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(margin, margin, bodyW, 2); // top edge
+    ctx.fillRect(margin, margin + bodyH - 2, bodyW, 2); // bottom edge
+    ctx.fillRect(margin, margin, 2, bodyH); // left edge
+    ctx.fillRect(margin + bodyW - 2, margin, 2, bodyH); // right edge
+
+    // Eyes
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(this.TILE_SIZE / 2 - 5, margin + 6, 3, 3);
+    ctx.fillRect(this.TILE_SIZE / 2 + 2, margin + 6, 3, 3);
+
     const texture = PIXI.Texture.from(canvas);
     return new PIXI.AnimatedSprite([texture]);
   }

@@ -5,6 +5,9 @@ export class KeyboardManager {
   private lastMoveTime: number = 0;
   private moveCooldown: number = 150; // Updated to 150ms as requested
 
+  /** When true (dialog open), movement keys are ignored. */
+  public locked: boolean = false;
+
   constructor() {
     window.addEventListener("keydown", (e) => {
       this.keys.add(e.code);
@@ -16,8 +19,11 @@ export class KeyboardManager {
 
   /**
    * Checks for movement keys and triggers the callback if a move is allowed.
+   * Movement is blocked while `locked` is true (dialog lock).
    */
   update(onMove: (direction: number) => void) {
+    if (this.locked) return;
+
     const now = Date.now();
     if (now - this.lastMoveTime < this.moveCooldown) return;
 

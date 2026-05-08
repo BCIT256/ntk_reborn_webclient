@@ -8,6 +8,9 @@ class GameSocket {
   private onMessageCallbacks: ((data: ServerToClient) => void)[] = [];
   private onConnectionLostCallbacks: (() => void)[] = [];
 
+  /** The entity_id of the local player, set by LoginSuccess. */
+  public localEntityId: number | null = null;
+
   private retryCount = 0;
   private reconnectStartTime = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,6 +38,9 @@ class GameSocket {
       try {
         const data: ServerToClient = JSON.parse(event.data);
         console.log("INCOMING:", data.type, data.payload);
+        if (data.type === "LoginSuccess") {
+          this.localEntityId = data.payload.entity_id;
+        }
         this.onMessageCallbacks.forEach(cb => cb(data));
       } catch (e) {
         console.error("Failed to parse incoming packet:", event.data);
