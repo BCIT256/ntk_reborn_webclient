@@ -11,7 +11,7 @@ class GameSocket {
 
     this.socket.onopen = () => {
       console.log("Connected to server.");
-      this.send({ LoginRequest: { username: "TestUser", password_hash: "" } });
+      this.send({ LoginRequest: { username: "Admin", password_hash: "test" } });
     };
 
     this.socket.onmessage = (event) => {
