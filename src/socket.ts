@@ -7,9 +7,14 @@ class GameSocket {
   private url: string = "ws://localhost:2010";
   private onMessageCallbacks: ((data: ServerToClient) => void)[] = [];
   private onConnectionLostCallbacks: (() => void)[] = [];
+  private onConnectCallbacks: (() => void)[] = [];
+  private onDisconnectCallbacks: (() => void)[] = [];
 
   /** The entity_id of the local player, set by LoginSuccess. */
   public localEntityId: number | null = null;
+
+  /** Whether the WebSocket is currently open. */
+  public connected: boolean = false;
 
   private retryCount = 0;
   private reconnectStartTime = 0;
@@ -29,9 +34,11 @@ class GameSocket {
 
     this.socket.onopen = () => {
       console.log("Connected to server.");
+      this.connected = true;
       // Reset retry state on successful connection
       this.retryCount = 0;
       this.reconnectStartTime = 0;
+      this.onConnectCallbacks.forEach(cb => cb());
     };
 
     this.socket.onmessage = (event) => {
@@ -50,7 +57,9 @@ class GameSocket {
 
     this.socket.onclose = () => {
       console.log("Disconnected from server.");
+      this.connected = false;
       this.localEntityId = null;
+      this.onDisconnectCallbacks.forEach(cb => cb());
       this.scheduleReconnect();
     };
 
@@ -90,6 +99,16 @@ class GameSocket {
 
   onConnectionLost(callback: () => void) {
     this.onConnectionLostCallbacks.push(callback);
+  }
+
+  /** Called when the WebSocket connects (onopen). */
+  onConnect(callback: () => void) {
+    this.onConnectCallbacks.push(callback);
+  }
+
+  /** Called when the WebSocket disconnects (onclose, before reconnect). */
+  onDisconnect(callback: () => void) {
+    this.onDisconnectCallbacks.push(callback);
   }
 
   /** Packet types whose payloads should be redacted from console logs. */

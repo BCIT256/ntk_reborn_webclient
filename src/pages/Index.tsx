@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { md5 } from "../utils/md5";
+import { Wifi, WifiOff } from "lucide-react";
 
 type GameState = "unauthenticated" | "patching" | "playing";
 
@@ -13,38 +14,45 @@ const Index = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<GameApp | null>(null);
   const [gameState, setGameState] = useState<GameState>("unauthenticated");
-  
-  // NEW: Store the spawn data while we patch!
+
+  // Store the spawn data while we patch
   const [spawnPayload, setSpawnPayload] = useState<any>(null);
-  
+
   // Form State
   const [username, setUsername] = useState("Admin");
   const [password, setPassword] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Connection state
+  const [isOnline, setIsOnline] = useState(socket.connected);
+
   useEffect(() => {
     const handleMessage = (packet: any) => {
       if (packet.type === "MapChange") {
         console.log("Login successful! Intercepted MapChange:", packet.payload);
-        // Save the map_id, x, and y for when the game boots
         setSpawnPayload(packet.payload);
         setGameState("patching");
       }
     };
 
+    const handleConnect = () => setIsOnline(true);
+    const handleDisconnect = () => setIsOnline(false);
+
     const handleConnectionLost = () => {
       console.log("Connection lost — returning to login screen.");
-      // Tear down the running game
       if (gameRef.current) {
         gameRef.current.destroy();
         gameRef.current = null;
       }
       setSpawnPayload(null);
       setPassword(""); // Clear password on disconnect
+      setIsOnline(false);
       setGameState("unauthenticated");
     };
 
     socket.onMessage(handleMessage);
+    socket.onConnect(handleConnect);
+    socket.onDisconnect(handleDisconnect);
     socket.onConnectionLost(handleConnectionLost);
     socket.connect();
 
@@ -57,7 +65,6 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    // NEW: Pass the spawnPayload into GameApp when it initializes
     if (gameState === "playing" && containerRef.current && !gameRef.current && spawnPayload) {
       gameRef.current = new GameApp(containerRef.current, spawnPayload);
     }
@@ -65,7 +72,7 @@ const Index = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) return;
+    if (!username || !password || !isOnline) return;
 
     setIsConnecting(true);
     const hashedPassword = md5(password);
@@ -84,21 +91,46 @@ const Index = () => {
     setTimeout(() => setIsConnecting(false), 2000);
   };
 
+  const canSubmit = isOnline && !isConnecting;
+
   return (
     <div className="w-full h-screen overflow-hidden bg-black relative">
       {gameState === "unauthenticated" && (
         <div className="flex flex-col items-center justify-center h-full bg-slate-950">
           <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
+            {/* Header */}
             <div className="text-center space-y-2">
               <h1 className="text-3xl font-bold text-white tracking-tighter">Yuroxia</h1>
               <p className="text-slate-400 text-sm">Enter your credentials to connect.</p>
             </div>
 
+            {/* Connection status indicator */}
+            <div
+              className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg border transition-colors ${
+                isOnline
+                  ? "bg-emerald-950/40 border-emerald-800/50"
+                  : "bg-red-950/40 border-red-800/50"
+              }`}
+            >
+              {isOnline ? (
+                <Wifi className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-red-400" />
+              )}
+              <span
+                className={`text-sm font-medium ${
+                  isOnline ? "text-emerald-300" : "text-red-300"
+                }`}
+              >
+                Server connection: {isOnline ? "Online" : "Offline"}
+              </span>
+            </div>
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-slate-300">Username</Label>
-                <Input 
-                  id="username" 
+                <Input
+                  id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="bg-slate-950 border-slate-700 text-white"
@@ -106,7 +138,7 @@ const Index = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-slate-300">Password</Label>
                 <Input
@@ -121,23 +153,30 @@ const Index = () => {
                 />
               </div>
 
-              <Button 
+              <Button
                 type="submit"
-                disabled={isConnecting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] mt-4"
+                disabled={!canSubmit}
+                className={`w-full font-semibold py-6 rounded-xl transition-all mt-4 ${
+                  canSubmit
+                    ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-[1.02] active:scale-[0.98]"
+                    : "bg-slate-700 text-slate-400 cursor-not-allowed"
+                }`}
               >
-                {isConnecting ? "Connecting..." : "Enter World"}
+                {!isOnline
+                  ? "Waiting for server..."
+                  : isConnecting
+                    ? "Connecting..."
+                    : "Enter World"}
               </Button>
             </form>
           </div>
         </div>
       )}
 
-      {/* NEW: Pass the target map_id to the loading screen so it can prioritize it if needed */}
       {gameState === "patching" && spawnPayload && (
-        <MapLoadingScreen 
-            targetMapId={spawnPayload.map_id} 
-            onComplete={() => setGameState("playing")} 
+        <MapLoadingScreen
+          targetMapId={spawnPayload.map_id}
+          onComplete={() => setGameState("playing")}
         />
       )}
 
