@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { GameApp } from "../gameMain";
 import { socket } from "../socket";
 import MapLoadingScreen from "../components/MapLoadingScreen";
@@ -15,6 +15,7 @@ type GameState = "splash" | "title" | "unauthenticated" | "patching" | "playing"
 const Index = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<GameApp | null>(null);
+  const loginAudioRef = useRef<HTMLAudioElement | null>(null);
   const [gameState, setGameState] = useState<GameState>("splash");
 
   // Store the spawn data while we patch
@@ -27,6 +28,35 @@ const Index = () => {
 
   // Connection state
   const [isOnline, setIsOnline] = useState(socket.connected);
+
+  // ── Login screen music ──────────────────────────────────────────────
+  const fadeOutLoginMusic = useCallback(() => {
+    const audio = loginAudioRef.current;
+    if (!audio) return;
+    const fadeInterval = setInterval(() => {
+      if (audio.volume > 0.05) {
+        audio.volume = Math.max(0, audio.volume - 0.04);
+      } else {
+        audio.pause();
+        audio.currentTime = 0;
+        clearInterval(fadeInterval);
+      }
+    }, 50);
+  }, []);
+
+  useEffect(() => {
+    if (gameState === "unauthenticated") {
+      // Start login music
+      const audio = loginAudioRef.current;
+      if (audio) {
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      }
+    } else {
+      // Fade out login music when leaving the login screen
+      fadeOutLoginMusic();
+    }
+  }, [gameState, fadeOutLoginMusic]);
 
   useEffect(() => {
     const handleMessage = (packet: any) => {
@@ -111,6 +141,13 @@ const Index = () => {
       {/* ── Login Screen ─────────────────────────────────────────── */}
       {gameState === "unauthenticated" && (
         <div className="flex flex-col items-center justify-center h-full bg-slate-950">
+          {/* ── Login Background Music ──────────────────────────── */}
+          <audio
+            ref={loginAudioRef}
+            src="/assets/login/login_music.mp3"
+            loop
+            preload="auto"
+          />
           <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
             {/* Header */}
             <div className="text-center space-y-2">
