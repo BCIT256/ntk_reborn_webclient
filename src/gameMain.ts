@@ -7,8 +7,12 @@ import { KeyboardManager } from "./inputs/keyboard";
 import { DOMOverlay } from "./ui/domOverlay";
 import { HUDManager } from "./ui/hudManager";
 import { DialogManager } from "./ui/dialogManager";
+import { DamageNumberManager } from "./ui/damageNumberManager";
 import { EntityManager } from "./managers/entityManager";
 import { assetManager } from "./utils/assetManager";
+import { eventBus } from "./utils/eventBus";
+
+const TILE_SIZE = 32;
 
 export class GameApp {
   private app: PIXI.Application;
@@ -20,6 +24,7 @@ export class GameApp {
   private ui: DOMOverlay;
   private hud: HUDManager;
   private dialog: DialogManager;
+  private damageNumbers: DamageNumberManager;
 
   /** Shared container for all entity sprites (enables Z-sorting by Y). */
   private entityLayer: PIXI.Container;
@@ -52,6 +57,9 @@ export class GameApp {
     // Remote entity manager
     this.entityManager = new EntityManager(this.entityLayer);
 
+    // Damage number manager (added to camera container so it scrolls with the world)
+    this.damageNumbers = new DamageNumberManager(this.camera.container);
+
     this.mapRenderer = new MapRenderer(this.camera.container);
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
@@ -79,71 +87,128 @@ export class GameApp {
       }
     }
 
+    // ─── Wire EventBus subscriptions ─────────────────────────────────
+    // The socket publishes events to the bus; managers subscribe independently.
+    // This keeps the socket decoupled from the renderer/UI layer.
+
+    eventBus.on("MapChange", (data) => {
+      this.mapRenderer.loadMap(data.map_id);
+      this.entityManager.clearAll();
+    });
+
+    eventBus.on("PlayerPosition", (data) => {
+      this.localPlayer.handleResync(data.x, data.y);
+    });
+
+    eventBus.on("SpawnCharacter", (data) => {
+      if (data.entity_id === socket.localEntityId) return;
+      this.entityManager.handleSpawn(data);
+    });
+
+    eventBus.on("EntityMove", (data) => {
+      if (data.entity_id === socket.localEntityId) {
+        this.localPlayer.moveToTarget(data.x, data.y, data.direction);
+      } else {
+        this.entityManager.handleMove(data);
+      }
+    });
+
+    eventBus.on("EntityRemove", (data) => {
+      this.entityManager.handleRemove(data.entity_id);
+    });
+
+    // ─── Combat ────────────────────────────────────────────────────
+    eventBus.on("EntityHealthUpdate", (data) => {
+      if (data.damage <= 0) return;
+
+      // Find the entity's world position so we can place the damage number
+      let worldX: number | undefined;
+      let worldY: number | undefined;
+
+      if (data.entity_id === socket.localEntityId) {
+        const pos = this.localPlayer.getPlayerPosition();
+        worldX = pos.x;
+        worldY = pos.y;
+      } else {
+        const entity = this.entityManager.getEntity(data.entity_id);
+        if (entity) {
+          const pos = entity.getPlayerPosition();
+          worldX = pos.x;
+          worldY = pos.y;
+        }
+      }
+
+      if (worldX !== undefined && worldY !== undefined) {
+        this.damageNumbers.spawn(worldX, worldY, data.damage, data.hit_type);
+      }
+    });
+
+    // ─── HUD ───────────────────────────────────────────────────────
+    eventBus.on("PlayerVitalsUpdate", (data) => {
+      this.hud.handleVitalsUpdate(data);
+    });
+
+    // ─── Dialog ────────────────────────────────────────────────────
+    eventBus.on("DialogPopup", (data) => {
+      this.dialog.handleDialogPopup(data);
+    });
+
+    eventBus.on("ShowMenu", (data) => {
+      this.dialog.handleShowMenu(data);
+    });
+
+    // ─── Chat / System ──────────────────────────────────────────────
+    eventBus.on("SystemMessage", (data) => {
+      this.ui.addMessage(data.message);
+    });
+
+    // ─── Socket → EventBus bridge ──────────────────────────────────
+    // All incoming server packets are forwarded to the EventBus.
+    // The switch block is now the single translation layer between
+    // raw socket packets and typed bus events.
     socket.onMessage((packet) => {
       switch (packet.type) {
-        // ─── World ────────────────────────────────────────────────
         case "MapChange":
-          this.mapRenderer.loadMap(packet.payload.map_id);
-          // Clear remote entities on map change
-          this.entityManager.clearAll();
+          eventBus.emit("MapChange", packet.payload);
           break;
-
         case "PlayerPosition":
-          this.localPlayer.handleResync(packet.payload.x, packet.payload.y);
+          eventBus.emit("PlayerPosition", packet.payload);
           break;
-
-        case "SpawnCharacter": {
-          // Skip the local player — we already render them
-          if (packet.payload.entity_id === socket.localEntityId) break;
-          this.entityManager.handleSpawn(packet.payload);
+        case "SpawnCharacter":
+          eventBus.emit("SpawnCharacter", packet.payload);
           break;
-        }
-
         case "EntityMove":
-          // If it's the local player, use the local renderer
-          if (packet.payload.entity_id === socket.localEntityId) {
-            this.localPlayer.moveToTarget(
-              packet.payload.x,
-              packet.payload.y,
-              packet.payload.direction
-            );
-          } else {
-            this.entityManager.handleMove(packet.payload);
-          }
+          eventBus.emit("EntityMove", packet.payload);
           break;
-
         case "EntityRemove":
-          this.entityManager.handleRemove(packet.payload.entity_id);
+          eventBus.emit("EntityRemove", packet.payload);
           break;
-
-        // ─── HUD ─────────────────────────────────────────────────
+        case "EntityHealthUpdate":
+          eventBus.emit("EntityHealthUpdate", packet.payload);
+          break;
         case "PlayerVitalsUpdate":
-          this.hud.handleVitalsUpdate(packet.payload);
+          eventBus.emit("PlayerVitalsUpdate", packet.payload);
           break;
-
-        // ─── Dialog ──────────────────────────────────────────────
         case "DialogPopup":
-          this.dialog.handleDialogPopup(packet.payload);
+          eventBus.emit("DialogPopup", packet.payload);
           break;
-
         case "ShowMenu":
-          this.dialog.handleShowMenu(packet.payload);
+          eventBus.emit("ShowMenu", packet.payload);
           break;
-
-        // ─── Chat / System ───────────────────────────────────────
         case "SystemMessage":
-          this.ui.addMessage(packet.payload.message);
+          eventBus.emit("SystemMessage", packet.payload);
           break;
       }
     });
 
-    // Note: socket.connect() is NOT called here because Index.tsx already manages the connection
-
+    // ─── Game loop ─────────────────────────────────────────────────
     this.app.ticker.add(() => {
-      // Drive smooth entity interpolation every frame
       const dt = this.app.ticker.elapsedMS / 1000;
+
+      // Drive smooth entity interpolation every frame
       this.localPlayer.update(dt);
       this.entityManager.update(dt);
+      this.damageNumbers.update(dt);
 
       this.keyboard.update((direction) => {
         this.localPlayer.predictMove(direction);
@@ -155,13 +220,20 @@ export class GameApp {
 
       const playerPos = this.localPlayer.getPlayerPosition();
       if (playerPos) {
-        this.camera.centerOn(playerPos.x, playerPos.y, this.app.screen.width, this.app.screen.height);
+        this.camera.centerOn(
+          playerPos.x,
+          playerPos.y,
+          this.app.screen.width,
+          this.app.screen.height
+        );
       }
     });
   }
 
   destroy() {
+    eventBus.clear();
     this.entityManager.clearAll();
+    this.damageNumbers.destroy();
     this.hud.destroy();
     this.dialog.destroy();
     this.app.destroy(true);

@@ -9,13 +9,23 @@ const SNAP_THRESHOLD = 0.5; // pixels — snap when this close to target
 
 type MovementState = "idle" | "walking";
 
+/**
+ * Fallback type determines which placeholder sprite to draw when
+ * no spritesheet atlas is available for the entity's graphic_id.
+ */
+export type FallbackType = "player" | "mob" | "npc";
+
 export interface EntityConfig {
   entityId: number;
   name: string;
-  /** If true, build animations from the player atlas. */
+  /** graphic_id from SpawnCharacter.gfx — selects which spritesheet to use. */
+  graphicId?: string;
+  /** If true, this is the local player entity. */
   isLocalPlayer?: boolean;
   /** Fallback sprite colour when atlas is not used. */
   fallbackColor?: number;
+  /** What kind of fallback placeholder to use. */
+  fallbackType?: FallbackType;
   /** Tint colour for the name tag text (from SpawnCharacter.name_color). */
   nameColor?: number;
 }
@@ -26,6 +36,7 @@ export class EntityRenderer {
   private nameTag: PIXI.Text;
 
   readonly entityId: number;
+  readonly graphicId: string;
 
   // Smooth-movement state
   // visualX / visualY represent the CONTAINER's world position in pixels.
@@ -51,15 +62,20 @@ export class EntityRenderer {
   constructor(cameraContainer: PIXI.Container, config: EntityConfig) {
     this.entityId = config.entityId;
     this.isLocalPlayer = config.isLocalPlayer ?? false;
+    this.graphicId = config.graphicId ?? (this.isLocalPlayer ? "player_base" : "mob");
 
     this.container = new PIXI.Container();
     cameraContainer.addChild(this.container);
 
-    // Build sprite — local player gets atlas animations, others get coloured fallback
-    this.usingAtlas = this.isLocalPlayer && assetManager.hasSpritesheet("player_base");
+    // Determine which spritesheet to use.
+    // 1) If graphicId has a loaded spritesheet → use it
+    // 2) Else if local player and "player_base" is loaded → use that
+    // 3) Else → fallback placeholder
+    const resolvedGraphicId = this.resolveGraphicId();
+    this.usingAtlas = resolvedGraphicId !== null;
 
     if (this.usingAtlas) {
-      this.buildAnimationCache();
+      this.buildAnimationCache(resolvedGraphicId!);
       const frames = this.getFrames("idle", "down");
       if (frames.length > 0) {
         this.sprite = new PIXI.AnimatedSprite(frames);
@@ -68,13 +84,19 @@ export class EntityRenderer {
         this.currentAnimationKey = "idle_down";
         this.sprite.play();
       } else {
-        console.warn("Player atlas loaded but no idle_down frames — using fallback");
+        console.warn(`Atlas ${resolvedGraphicId} loaded but no idle_down frames — using fallback`);
         this.usingAtlas = false;
-        this.sprite = this.createFallbackAnimatedSprite(config.fallbackColor ?? 0xff0000);
+        this.sprite = this.createFallbackAnimatedSprite(
+          config.fallbackColor ?? 0x4488ff,
+          config.fallbackType ?? (this.isLocalPlayer ? "player" : "mob")
+        );
       }
     } else {
-      const color = config.fallbackColor ?? 0x4488ff; // default remote colour: blue
-      this.sprite = this.createFallbackAnimatedSprite(color);
+      const color = config.fallbackColor ?? (this.isLocalPlayer ? 0xff0000 : 0x4488ff);
+      this.sprite = this.createFallbackAnimatedSprite(
+        color,
+        config.fallbackType ?? (this.isLocalPlayer ? "player" : "mob")
+      );
     }
 
     // Sprite sits at (0,0) inside the container — the container moves instead
@@ -83,7 +105,9 @@ export class EntityRenderer {
     this.container.addChild(this.sprite);
 
     // ─── Name tag ───────────────────────────────────────────────────
-    const tagColor = config.nameColor ? `#${config.nameColor.toString(16).padStart(6, "0")}` : "#ffffff";
+    const tagColor = config.nameColor
+      ? `#${config.nameColor.toString(16).padStart(6, "0")}`
+      : "#ffffff";
     this.nameTag = new PIXI.Text(config.name, {
       fontFamily: "Arial, sans-serif",
       fontSize: 11,
@@ -196,6 +220,27 @@ export class EntityRenderer {
     this.container.destroy({ children: true });
   }
 
+  // ─── Graphic resolution ───────────────────────────────────────────
+
+  /**
+   * Resolve which graphic_id spritesheet to use for this entity.
+   * Returns null if no atlas is available (use fallback instead).
+   */
+  private resolveGraphicId(): string | null {
+    // 1. Direct match on the entity's graphicId
+    if (this.graphicId && assetManager.hasEntitySpritesheet(this.graphicId)) {
+      return this.graphicId;
+    }
+
+    // 2. Local player always tries "player_base"
+    if (this.isLocalPlayer && assetManager.hasSpritesheet("player_base")) {
+      return "player_base";
+    }
+
+    // 3. No atlas available
+    return null;
+  }
+
   // ─── Animation state machine ───────────────────────────────────────
 
   private setWalking() {
@@ -226,19 +271,19 @@ export class EntityRenderer {
 
   // ─── Spritesheet helpers ────────────────────────────────────────────
 
-  private buildAnimationCache() {
+  private buildAnimationCache(graphicId: string) {
     for (const dirName of DIRECTION_NAMES) {
-      const idleFrames = assetManager.getPlayerFrames("idle", dirName);
+      const idleFrames = assetManager.getEntityFrames(graphicId, "idle", dirName);
       if (idleFrames.length > 0) {
         this.animationCache.set(`idle_${dirName}`, idleFrames);
       }
-      const walkFrames = assetManager.getPlayerFrames("walk", dirName);
+      const walkFrames = assetManager.getEntityFrames(graphicId, "walk", dirName);
       if (walkFrames.length > 0) {
         this.animationCache.set(`walk_${dirName}`, walkFrames);
       }
     }
     console.log(
-      `Built animation cache: ${this.animationCache.size} animation sets`
+      `Built animation cache for ${graphicId}: ${this.animationCache.size} animation sets`
     );
   }
 
@@ -248,31 +293,66 @@ export class EntityRenderer {
 
   // ─── Fallback (no atlas) ────────────────────────────────────────────
 
-  private createFallbackAnimatedSprite(color: number): PIXI.AnimatedSprite {
+  private createFallbackAnimatedSprite(color: number, type: FallbackType): PIXI.AnimatedSprite {
     const canvas = document.createElement("canvas");
     canvas.width = this.TILE_SIZE;
     canvas.height = this.TILE_SIZE;
     const ctx = canvas.getContext("2d")!;
 
-    // Body
     const hex = "#" + color.toString(16).padStart(6, "0");
-    ctx.fillStyle = hex;
-    const margin = 6;
-    const bodyW = this.TILE_SIZE - margin * 2;
-    const bodyH = this.TILE_SIZE - margin * 2;
-    ctx.fillRect(margin, margin, bodyW, bodyH);
 
-    // Simple "face" — two eyes + a darker outline
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(margin, margin, bodyW, 2); // top edge
-    ctx.fillRect(margin, margin + bodyH - 2, bodyW, 2); // bottom edge
-    ctx.fillRect(margin, margin, 2, bodyH); // left edge
-    ctx.fillRect(margin + bodyW - 2, margin, 2, bodyH); // right edge
-
-    // Eyes
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(this.TILE_SIZE / 2 - 5, margin + 6, 3, 3);
-    ctx.fillRect(this.TILE_SIZE / 2 + 2, margin + 6, 3, 3);
+    if (type === "player") {
+      // Humanoid shape with head + body
+      ctx.fillStyle = hex;
+      // Body
+      const margin = 6;
+      const bodyW = this.TILE_SIZE - margin * 2;
+      const bodyH = this.TILE_SIZE - margin * 2;
+      ctx.fillRect(margin, margin, bodyW, bodyH);
+      // Outline
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(margin, margin, bodyW, 2);
+      ctx.fillRect(margin, margin + bodyH - 2, bodyW, 2);
+      ctx.fillRect(margin, margin, 2, bodyH);
+      ctx.fillRect(margin + bodyW - 2, margin, 2, bodyH);
+      // Eyes
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(this.TILE_SIZE / 2 - 5, margin + 6, 3, 3);
+      ctx.fillRect(this.TILE_SIZE / 2 + 2, margin + 6, 3, 3);
+    } else if (type === "npc") {
+      // NPC: green-tinted humanoid with a hat marker
+      ctx.fillStyle = hex;
+      const margin = 6;
+      const bodyW = this.TILE_SIZE - margin * 2;
+      const bodyH = this.TILE_SIZE - margin * 2;
+      ctx.fillRect(margin, margin, bodyW, bodyH);
+      // Hat triangle on top
+      ctx.fillStyle = "#fbbf24";
+      ctx.beginPath();
+      ctx.moveTo(this.TILE_SIZE / 2, margin - 6);
+      ctx.lineTo(this.TILE_SIZE / 2 - 5, margin + 2);
+      ctx.lineTo(this.TILE_SIZE / 2 + 5, margin + 2);
+      ctx.closePath();
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(this.TILE_SIZE / 2 - 5, margin + 6, 3, 3);
+      ctx.fillRect(this.TILE_SIZE / 2 + 2, margin + 6, 3, 3);
+    } else {
+      // Mob: blob-like shape
+      ctx.fillStyle = hex;
+      const cx = this.TILE_SIZE / 2;
+      const cy = this.TILE_SIZE / 2 + 4;
+      const rx = 10;
+      const ry = 8;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Eyes — angry slits
+      ctx.fillStyle = "#ff4444";
+      ctx.fillRect(cx - 5, cy - 3, 4, 2);
+      ctx.fillRect(cx + 1, cy - 3, 4, 2);
+    }
 
     const texture = PIXI.Texture.from(canvas);
     return new PIXI.AnimatedSprite([texture]);

@@ -87,6 +87,43 @@ class AssetManager {
     return frames;
   }
 
+  /**
+   * Return an ordered array of textures for an entity animation by graphic_id.
+   * graphic_id examples: "player_base", "mob_slime", "npc_merchant"
+   * action = "walk" | "idle",  direction = "up" | "right" | "down" | "left"
+   * Scans for sequentially numbered frames: {graphicId}_{action}_{direction}_{i}.png
+   * Falls back to "player_base" sheet if graphic_id not found.
+   */
+  getEntityFrames(graphicId: string, action: string, direction: string): PIXI.Texture[] {
+    // Try the requested graphic_id first
+    let spritesheet = this.spritesheets.get(graphicId);
+
+    // Fallback to player_base if the specific graphic isn't loaded
+    if (!spritesheet) {
+      spritesheet = this.spritesheets.get("player_base");
+    }
+
+    if (!spritesheet || !spritesheet.textures) return [];
+
+    const frames: PIXI.Texture[] = [];
+    let i = 1;
+    while (true) {
+      const frameName = `${graphicId}_${action}_${direction}_${i}.png`;
+      const texture = spritesheet.textures[frameName];
+      if (!texture) break;
+      frames.push(texture);
+      i++;
+    }
+    return frames;
+  }
+
+  /**
+   * Check if a spritesheet exists for a given graphic_id.
+   */
+  hasEntitySpritesheet(graphicId: string): boolean {
+    return this.spritesheets.has(graphicId);
+  }
+
   // ─── Map-data methods (existing) ────────────────────────────────────
 
   async syncManifest(): Promise<MapManifest> {

@@ -1,10 +1,14 @@
 import { socket } from "../socket";
 import { KeyboardManager } from "../inputs/keyboard";
+import { eventBus, GameEvents } from "../utils/eventBus";
 
 /**
  * DialogManager — Handles DialogPopup and ShowMenu packets.
  * Renders a centered dialog overlay. While open, keyboard movement is locked.
  * Clicking a menu option sends MenuResponse back via WebSocket.
+ *
+ * Can receive data directly via handleDialogPopup/handleShowMenu or
+ * auto-subscribe to the EventBus for decoupled architecture.
  */
 export class DialogManager {
   private root: HTMLElement;
@@ -17,6 +21,12 @@ export class DialogManager {
 
   private currentNpcId: number | null = null;
   private isOpen: boolean = false;
+
+  /** Tracks whether the current dialog is a menu (vs. a simple NPC dialog). */
+  private isMenu: boolean = false;
+
+  /** Unsubscribe functions for EventBus listeners. */
+  private unsubs: (() => void)[] = [];
 
   constructor() {
     this.root = document.createElement("div");
@@ -101,6 +111,20 @@ export class DialogManager {
     this.keyboard = kb;
   }
 
+  // ─── EventBus auto-subscription ────────────────────────────────────
+
+  /**
+   * Subscribe to DialogPopup and ShowMenu events on the EventBus.
+   * Call this if you want the dialog to appear automatically without
+   * manual handleDialogPopup/handleShowMenu calls.
+   */
+  subscribeToBus(): void {
+    this.unsubs.push(
+      eventBus.on("DialogPopup", (data) => this.handleDialogPopup(data)),
+      eventBus.on("ShowMenu", (data) => this.handleShowMenu(data))
+    );
+  }
+
   // ─── Packet handlers ────────────────────────────────────────────────
 
   handleDialogPopup(data: { npc_id: number; name: string; message: string }) {
@@ -169,9 +193,6 @@ export class DialogManager {
     return btn;
   }
 
-  /** Tracks whether the current dialog is a menu (vs. a simple NPC dialog). */
-  private isMenu: boolean = false;
-
   private sendResponse(selectedIndex: number) {
     if (this.isMenu) {
       socket.send({
@@ -212,6 +233,8 @@ export class DialogManager {
 
   destroy() {
     if (this.keyboard) this.keyboard.locked = false;
+    this.unsubs.forEach((unsub) => unsub());
+    this.unsubs = [];
     this.root.remove();
   }
 }

@@ -1,5 +1,27 @@
 import { Container } from "pixi.js";
-import { EntityRenderer, EntityConfig } from "../renderers/entityRenderer";
+import { EntityRenderer, FallbackType } from "../renderers/entityRenderer";
+
+/** Matches the SpawnCharacter payload from the protocol. */
+export interface SpawnData {
+  entity_id: number;
+  x: number;
+  y: number;
+  direction: number;
+  name: string;
+  name_color: number;
+  speed: number;
+  state: number;
+  sex: number;
+  face: number;
+  face_color: number;
+  hair: number;
+  hair_color: number;
+  skin_color: number;
+  equipment: number[];
+  is_grouped: boolean;
+  is_pk: boolean;
+  graphic_id: string;
+}
 
 /**
  * Manages all remote entities in the viewport.
@@ -15,25 +37,7 @@ export class EntityManager {
 
   // ─── Packet handlers ──────────────────────────────────────────────
 
-  handleSpawn(data: {
-    entity_id: number;
-    x: number;
-    y: number;
-    direction: number;
-    name: string;
-    name_color: number;
-    speed: number;
-    state: number;
-    sex: number;
-    face: number;
-    face_color: number;
-    hair: number;
-    hair_color: number;
-    skin_color: number;
-    equipment: number[];
-    is_grouped: boolean;
-    is_pk: boolean;
-  }) {
+  handleSpawn(data: SpawnData) {
     // Don't spawn duplicates
     if (this.entities.has(data.entity_id)) {
       // Update position of existing entity
@@ -42,24 +46,36 @@ export class EntityManager {
       return;
     }
 
-    // Pick a fallback colour based on whether entity is a PK (red) or not (blue-ish)
+    // Determine fallback colour based on PK status
     const fallbackColor = data.is_pk ? 0xcc4444 : 0x4488cc;
 
-    const config: EntityConfig = {
+    // Determine fallback type from the graphic_id prefix
+    let fallbackType: FallbackType = "mob";
+    const gid = (data.graphic_id || "").toLowerCase();
+    if (gid.startsWith("player") || gid.startsWith("char")) {
+      fallbackType = "player";
+    } else if (gid.startsWith("npc") || gid.startsWith("merchant")) {
+      fallbackType = "npc";
+    }
+
+    const entity = new EntityRenderer(this.container, {
       entityId: data.entity_id,
       name: data.name,
+      graphicId: data.graphic_id || "",
       isLocalPlayer: false,
       fallbackColor,
+      fallbackType,
       nameColor: data.name_color,
-    };
+    });
 
-    const entity = new EntityRenderer(this.container, config);
     entity.handleResync(data.x, data.y);
-    // Set facing direction from spawn data (moveToTarget handles already-at-target gracefully)
+    // Set facing direction from spawn data
     entity.moveToTarget(data.x, data.y, data.direction);
     this.entities.set(data.entity_id, entity);
 
-    console.log(`[EntityManager] Spawned entity ${data.entity_id} ("${data.name}") at (${data.x}, ${data.y})`);
+    console.log(
+      `[EntityManager] Spawned entity ${data.entity_id} ("${data.name}" gfx=${data.graphic_id}) at (${data.x}, ${data.y})`
+    );
   }
 
   handleMove(data: { entity_id: number; x: number; y: number; direction: number }) {
@@ -90,7 +106,6 @@ export class EntityManager {
     // Z-sort: entities with higher Y render in front (painter's algorithm)
     const children = this.container.children;
     if (children.length >= 2) {
-      // Each child is an EntityRenderer's container, positioned at the entity's world Y
       children.sort((a, b) => {
         return (a as Container).y - (b as Container).y;
       });

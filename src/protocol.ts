@@ -22,7 +22,8 @@ export interface ServerMessages {
     entity_id: number, x: number, y: number, direction: number, name: string,
     speed: number, state: number, sex: number, face: number, face_color: number,
     hair: number, hair_color: number, skin_color: number, equipment: number[],
-    is_grouped: boolean, is_pk: boolean, name_color: number
+    is_grouped: boolean, is_pk: boolean, name_color: number,
+    graphic_id: string
   };
   EntityMove: { entity_id: number, x: number, y: number, direction: number };
   EntityRemove: { entity_id: number, is_death: boolean };

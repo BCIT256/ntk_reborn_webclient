@@ -1,0 +1,98 @@
+/**
+ * EventBus — lightweight typed publish/subscribe system.
+ * Decouples the WebSocket layer from renderers and UI managers.
+ *
+ * Usage:
+ *   eventBus.on("EntityHealthUpdate", (data) => { ... });
+ *   eventBus.emit("EntityHealthUpdate", { entity_id: 5, damage: 42, ... });
+ */
+
+type Listener<T = unknown> = (data: T) => void;
+
+export interface GameEvents {
+  // ─── World ────────────────────────────────────────────────────────
+  MapChange: { map_id: number };
+  PlayerPosition: { x: number; y: number; view_x: number; view_y: number };
+  SpawnCharacter: {
+    entity_id: number;
+    x: number;
+    y: number;
+    direction: number;
+    name: string;
+    speed: number;
+    state: number;
+    sex: number;
+    face: number;
+    face_color: number;
+    hair: number;
+    hair_color: number;
+    skin_color: number;
+    equipment: number[];
+    is_grouped: boolean;
+    is_pk: boolean;
+    name_color: number;
+    graphic_id: string;
+  };
+  EntityMove: { entity_id: number; x: number; y: number; direction: number };
+  EntityRemove: { entity_id: number; is_death: boolean };
+
+  // ─── Combat ───────────────────────────────────────────────────────
+  EntityHealthUpdate: {
+    entity_id: number;
+    damage: number;
+    hp_percent: number;
+    hit_type: number;
+  };
+
+  // ─── Vitals ────────────────────────────────────────────────────────
+  PlayerVitalsUpdate: {
+    hp: number;
+    max_hp: number;
+    mp: number;
+    max_mp: number;
+    xp: number;
+    xp_next: number;
+    gold: number;
+    level: number;
+  };
+
+  // ─── Dialog / Menu ────────────────────────────────────────────────
+  DialogPopup: { npc_id: number; name: string; message: string };
+  ShowMenu: { message: string; options: string[] };
+
+  // ─── Chat / System ─────────────────────────────────────────────────
+  SystemMessage: { message: string };
+}
+
+class EventBusClass {
+  private listeners: Map<string, Set<Listener>> = new Map();
+
+  on<K extends keyof GameEvents>(event: K, callback: Listener<GameEvents[K]>): () => void {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    const set = this.listeners.get(event)!;
+    set.add(callback as Listener);
+
+    // Return unsubscribe function
+    return () => {
+      set.delete(callback as Listener);
+      if (set.size === 0) this.listeners.delete(event);
+    };
+  }
+
+  emit<K extends keyof GameEvents>(event: K, data: GameEvents[K]): void {
+    const set = this.listeners.get(event);
+    if (!set) return;
+    for (const cb of set) {
+      (cb as Listener<GameEvents[K]>)(data);
+    }
+  }
+
+  /** Remove all listeners for every event. */
+  clear(): void {
+    this.listeners.clear();
+  }
+}
+
+export const eventBus = new EventBusClass();

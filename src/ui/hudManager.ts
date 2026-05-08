@@ -1,6 +1,11 @@
+import { eventBus, GameEvents } from "../utils/eventBus";
+
 /**
  * HUDManager — DOM overlay that displays HP / MP / XP bars and a gold counter.
  * Styled to look like a polished in-game HUD with semi-transparent panels.
+ *
+ * Can receive vitals updates directly via handleVitalsUpdate() or
+ * auto-subscribe to the EventBus for decoupled architecture.
  */
 export class HUDManager {
   private root: HTMLElement;
@@ -12,6 +17,8 @@ export class HUDManager {
   private xpText!: HTMLElement;
   private goldText!: HTMLElement;
   private levelText!: HTMLElement;
+
+  private unsubscribe?: () => void;
 
   constructor() {
     this.root = document.createElement("div");
@@ -30,18 +37,22 @@ export class HUDManager {
     document.body.appendChild(this.root);
   }
 
+  // ─── EventBus auto-subscription ────────────────────────────────────
+
+  /**
+   * Subscribe to PlayerVitalsUpdate events on the EventBus.
+   * Call this if you want the HUD to update automatically without
+   * manual handleVitalsUpdate() calls.
+   */
+  subscribeToBus(): void {
+    this.unsubscribe = eventBus.on("PlayerVitalsUpdate", (data) => {
+      this.handleVitalsUpdate(data);
+    });
+  }
+
   // ─── Public API ─────────────────────────────────────────────────────
 
-  handleVitalsUpdate(data: {
-    hp: number;
-    max_hp: number;
-    mp: number;
-    max_mp: number;
-    xp: number;
-    xp_next: number;
-    gold: number;
-    level: number;
-  }) {
+  handleVitalsUpdate(data: GameEvents["PlayerVitalsUpdate"]) {
     // HP
     const hpPct = data.max_hp > 0 ? Math.min((data.hp / data.max_hp) * 100, 100) : 0;
     this.hpBar.style.width = `${hpPct}%`;
@@ -64,6 +75,7 @@ export class HUDManager {
 
   destroy() {
     this.root.remove();
+    this.unsubscribe?.();
   }
 
   // ─── DOM construction ───────────────────────────────────────────────
