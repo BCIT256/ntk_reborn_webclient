@@ -5,15 +5,12 @@ interface TitleScreenProps {
 }
 
 /**
- * TitleScreen — Cinematic title screen with background art, game logo,
+ * TitleScreen — Cinematic title screen with background art,
  * looping music, and a "Press any Key to Enter" prompt.
  *
  * ── Asset locations ────────────────────────────────────────────────
  *   Background image:  public/assets/title/title_bg.png
- *   Background music:  public/assets/title/title_music.mp3 (.wav also works)
- *
- * Replace the placeholder files with your own assets.
- * If the music file is missing, the screen works silently.
+ *   Background music:  public/assets/title/Yuroxia_Title_Screen.mp3
  * ───────────────────────────────────────────────────────────────────
  */
 const TitleScreen = ({ onComplete }: TitleScreenProps) => {
@@ -91,37 +88,19 @@ const TitleScreen = ({ onComplete }: TitleScreenProps) => {
         style={{ backgroundImage: "url('/assets/title/title_bg.png')" }}
       />
 
-      {/* ── Dark overlay for readability ──────────────────────────── */}
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* ── Subtle vignette ──────────────────────────────────────── */}
+      {/* ── Subtle vignette at edges ────────────────────────────── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%)",
+            "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%)",
         }}
       />
 
       {/* ── Content ──────────────────────────────────────────────── */}
-      <div className="relative z-10 flex flex-col items-center gap-8 select-none">
-        {/* Game Logo */}
-        <div className="flex flex-col items-center gap-2">
-          <h1
-            className="text-6xl md:text-8xl font-bold text-white tracking-tighter drop-shadow-2xl"
-            style={{
-              fontFamily: "'Georgia', 'Times New Roman', serif",
-              textShadow:
-                "0 0 40px rgba(99,102,241,0.4), 0 0 80px rgba(99,102,241,0.15), 0 4px 20px rgba(0,0,0,0.8)",
-            }}
-          >
-            Yuroxia
-          </h1>
-          <div className="w-24 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
-        </div>
-
+      <div className="relative z-10 flex flex-col items-center justify-end h-full pb-[18vh] select-none">
         {/* Press any key prompt */}
-        <div className="mt-16">
+        <div>
           <p
             className="title-pulse text-lg md:text-xl text-white/70 tracking-widest font-light"
             style={{
@@ -136,7 +115,7 @@ const TitleScreen = ({ onComplete }: TitleScreenProps) => {
       {/* ── Background Music ─────────────────────────────────────── */}
       <audio
         ref={audioRef}
-        src="/assets/title/title_music.mp3"
+        src="/assets/title/Yuroxia_Title_Screen.mp3"
         loop
         preload="auto"
       />

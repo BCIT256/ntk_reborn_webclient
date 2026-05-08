@@ -9,7 +9,7 @@ interface SplashScreenProps {
  * smoothly fades out to the title screen when the video ends.
  *
  * ── Where to put your video ──────────────────────────────────────
- *   public/assets/splash/splash.mp4
+ *   public/assets/splash/SPLASH.mp4
  *   Format: MP4 (H.264), ~8 seconds, 1920×1080+
  *
  * If the video file is missing, a dark fallback is shown for 3 seconds.
@@ -56,7 +56,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       {!videoError && (
         <video
           ref={videoRef}
-          src="/assets/splash/splash.mp4"
+          src="/assets/splash/SPLASH.mp4"
           autoPlay
           muted
           playsInline
