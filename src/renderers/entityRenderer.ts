@@ -11,28 +11,53 @@ export class EntityRenderer {
     this.container = container;
   }
 
-  handlePacket(packet: ServerToClient): { playerMoved: boolean, x: number, y: number } | null {
+  /**
+   * Instantly moves the player sprite locally (Prediction).
+   */
+  predictMove(direction: number) {
+    if (this.playerEntityId === null) return;
+    const player = this.entities.get(this.playerEntityId);
+    if (!player) return;
+
+    if (direction === 0) player.y -= this.TILE_SIZE;      // Up
+    else if (direction === 1) player.x += this.TILE_SIZE; // Right
+    else if (direction === 2) player.y += this.TILE_SIZE; // Down
+    else if (direction === 3) player.x -= this.TILE_SIZE; // Left
+  }
+
+  /**
+   * Forcefully snaps the player to specific coordinates (Reconciliation/Rubberbanding).
+   */
+  handleResync(x: number, y: number) {
+    if (this.playerEntityId === null) return;
+    const player = this.entities.get(this.playerEntityId);
+    if (player) {
+      player.x = x * this.TILE_SIZE;
+      player.y = y * this.TILE_SIZE;
+    }
+  }
+
+  handlePacket(packet: ServerToClient) {
     const { type, payload } = packet;
 
     if (type === "SpawnCharacter") {
       this.spawnCharacter(payload);
+      // Assume the first character spawned is the player for this implementation
       if (this.playerEntityId === null) {
         this.playerEntityId = payload.entity_id;
       }
     } else if (type === "EntityMove") {
       const entity = this.entities.get(payload.entity_id);
       if (entity) {
-        entity.x = payload.x * this.TILE_SIZE;
-        entity.y = payload.y * this.TILE_SIZE;
-        
-        if (payload.entity_id === this.playerEntityId) {
-          return { playerMoved: true, x: entity.x, y: entity.y };
+        // Only update other entities; player is handled by prediction/resync
+        if (payload.entity_id !== this.playerEntityId) {
+          entity.x = payload.x * this.TILE_SIZE;
+          entity.y = payload.y * this.TILE_SIZE;
         }
       }
     } else if (type === "EntityRemove") {
       this.removeEntity(payload.entity_id);
     }
-    return null;
   }
 
   private spawnCharacter(data: any) {

@@ -38,9 +38,13 @@ export class GameApp {
     this.mapRenderer.init();
     
     socket.onMessage((packet) => {
-      // Handle messages based on the 'type' field
       if (packet.type === "MapChange") {
         this.mapRenderer.loadMap(packet.payload.map_id);
+      }
+
+      // Handle the Resync/Rubberband packet
+      if (packet.type === "PlayerPosition") {
+        this.entityRenderer.handleResync(packet.payload.x, packet.payload.y);
       }
 
       this.entityRenderer.handlePacket(packet);
@@ -53,7 +57,23 @@ export class GameApp {
     socket.connect();
 
     this.app.ticker.add(() => {
-      this.keyboard.update();
+      // Client-Side Prediction logic
+      this.keyboard.update((direction) => {
+        // 1. Move locally instantly
+        this.entityRenderer.predictMove(direction);
+        
+        // 2. Send the packet to the server
+        socket.send({ 
+          type: "Move", 
+          payload: { direction } 
+        });
+      });
+
+      // Update camera to follow player
+      const playerPos = this.entityRenderer.getPlayerPosition();
+      if (playerPos) {
+        this.camera.centerOn(playerPos.x, playerPos.y, this.app.screen.width, this.app.screen.height);
+      }
     });
   }
 

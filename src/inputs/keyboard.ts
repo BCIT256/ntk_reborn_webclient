@@ -3,7 +3,7 @@ import { socket } from "../socket";
 export class KeyboardManager {
   private keys: Set<string> = new Set();
   private lastMoveTime: number = 0;
-  private moveCooldown: number = 200;
+  private moveCooldown: number = 150; // Updated to 150ms as requested
 
   constructor() {
     window.addEventListener("keydown", (e) => {
@@ -14,7 +14,10 @@ export class KeyboardManager {
     });
   }
 
-  update() {
+  /**
+   * Checks for movement keys and triggers the callback if a move is allowed.
+   */
+  update(onMove: (direction: number) => void) {
     const now = Date.now();
     if (now - this.lastMoveTime < this.moveCooldown) return;
 
@@ -25,10 +28,7 @@ export class KeyboardManager {
     else if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) direction = 3;
 
     if (direction !== -1) {
-      socket.send({ 
-        type: "Move", 
-        payload: { direction } 
-      });
+      onMove(direction);
       this.lastMoveTime = now;
     }
   }
