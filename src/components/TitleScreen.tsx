@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Wifi, WifiOff } from "lucide-react";
 
 interface TitleScreenProps {
   onComplete: () => void;
+  isOnline: boolean;
 }
 
 /**
@@ -13,7 +15,7 @@ interface TitleScreenProps {
  *   Background music:  public/assets/title/Yuroxia_Title_Screen.mp3
  * ───────────────────────────────────────────────────────────────────
  */
-const TitleScreen = ({ onComplete }: TitleScreenProps) => {
+const TitleScreen = ({ onComplete, isOnline }: TitleScreenProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [fadeIn, setFadeIn] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
@@ -119,6 +121,22 @@ const TitleScreen = ({ onComplete }: TitleScreenProps) => {
         loop
         preload="auto"
       />
+
+      {/* ── Server Status Indicator ──────────────────────────────── */}
+      <div className="absolute bottom-4 left-4 p-2 rounded-lg bg-black/50 backdrop-blur-sm flex items-center gap-2 border border-white/10">
+        {isOnline ? (
+          <Wifi className="w-4 h-4 text-emerald-400" />
+        ) : (
+          <WifiOff className="w-4 h-4 text-red-400" />
+        )}
+        <span
+          className={`text-sm font-medium ${
+            isOnline ? "text-emerald-300" : "text-red-300"
+          }`}
+        >
+          Server: {isOnline ? "Online" : "Offline"}
+        </span>
+      </div>
     </div>
   );
 };

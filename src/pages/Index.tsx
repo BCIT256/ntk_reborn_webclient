@@ -50,6 +50,18 @@ const Index = () => {
     };
   }, [gameState, isOnline]);
 
+  // ── Login Screen Timeout ────────────────────────────────
+  useEffect(() => {
+    if (gameState === "unauthenticated") {
+      const timeout = setTimeout(() => {
+        console.log("Login screen timeout: returning to title screen.");
+        setGameState("title");
+      }, 120000); // 2 minutes
+
+      return () => clearTimeout(timeout);
+    }
+  }, [gameState]);
+
   // ── Login screen music ──────────────────────────────────────────────
   const fadeOutLoginMusic = useCallback(() => {
     const audio = loginAudioRef.current;
@@ -156,7 +168,7 @@ const Index = () => {
 
       {/* ── Title Screen ─────────────────────────────────────────── */}
       {gameState === "title" && (
-        <TitleScreen onComplete={() => setGameState("unauthenticated")} />
+        <TitleScreen onComplete={() => setGameState("unauthenticated")} isOnline={isOnline} />
       )}
 
       {/* ── Login Screen ─────────────────────────────────────────── */}
