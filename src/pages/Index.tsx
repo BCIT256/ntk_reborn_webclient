@@ -3,6 +3,9 @@ import { GameApp } from "../gameMain";
 import { socket } from "../socket";
 import MapLoadingScreen from "../components/MapLoadingScreen";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { md5 } from "../utils/md5"; // Ensure this matches your file path
 
 type GameState = "unauthenticated" | "patching" | "playing";
 
@@ -10,16 +13,27 @@ const Index = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<GameApp | null>(null);
   const [gameState, setGameState] = useState<GameState>("unauthenticated");
+  
+  // Form State
+  const [username, setUsername] = useState("Admin");
+  const [password, setPassword] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    // Listen for successful login to start the patcher
+    // FIXED: Listen for MapChange instead of LoginSuccess
     const handleMessage = (packet: any) => {
-      if (packet.type === "LoginSuccess") {
+      if (packet.type === "MapChange") {
+        console.log("Login successful! Intercepted MapChange:", packet.payload);
+        
+        // TODO: You will eventually need to pass packet.payload.map_id 
+        // to the MapLoadingScreen so it knows which map to verify first.
         setGameState("patching");
       }
     };
 
     socket.onMessage(handleMessage);
+    
+    // Connect to the WebSocket as soon as the page loads
     socket.connect();
 
     return () => {
@@ -37,26 +51,71 @@ const Index = () => {
     }
   }, [gameState]);
 
-  const handleLogin = () => {
-    // In a real app, this would be a form, but here we just trigger the login
-    // which the socket.ts is already configured to send on connection for testing.
-    // However, since socket.connect() was called in useEffect, we might already be waiting.
-    console.log("Waiting for LoginSuccess event...");
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username || !password) return;
+
+    setIsConnecting(true);
+
+    const hashedPassword = md5(password);
+
+    // Send the correctly formatted Adjacently Tagged JSON
+    socket.send({
+      type: "LoginRequest",
+      payload: {
+        username: username,
+        password_hash: hashedPassword,
+      },
+    });
+
+    // Reset connecting state after a brief timeout if no response is received
+    setTimeout(() => setIsConnecting(false), 2000);
   };
 
   return (
     <div className="w-full h-screen overflow-hidden bg-black relative">
       {gameState === "unauthenticated" && (
         <div className="flex flex-col items-center justify-center h-full bg-slate-950">
-          <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl text-center space-y-6 max-w-sm w-full mx-4">
-            <h1 className="text-3xl font-bold text-white tracking-tighter">RPG Adventure</h1>
-            <p className="text-slate-400 text-sm">Welcome back, traveler. Ready to continue your journey?</p>
-            <Button 
-              onClick={handleLogin}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Enter World
-            </Button>
+          <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold text-white tracking-tighter">Yuroxia</h1>
+              <p className="text-slate-400 text-sm">Enter your credentials to connect.</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-slate-300">Username</Label>
+                <Input 
+                  id="username" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-slate-950 border-slate-700 text-white"
+                  placeholder="Enter username"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-slate-300">Password</Label>
+                <Input 
+                  id="password" 
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-slate-950 border-slate-700 text-white"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <Button 
+                type="submit"
+                disabled={isConnecting}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] mt-4"
+              >
+                {isConnecting ? "Connecting..." : "Enter World"}
+              </Button>
+            </form>
           </div>
         </div>
       )}
