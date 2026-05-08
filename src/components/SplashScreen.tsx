@@ -25,18 +25,65 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
     if (hasTriggered.current) return;
     hasTriggered.current = true;
 
-    // Start fade-out, then call onComplete after the transition
     setFadeOut(true);
     setTimeout(onComplete, 1200);
   }, [onComplete]);
 
   useEffect(() => {
-    // Fallback timer: if video is missing or errors, show dark screen for 3s
     if (videoError) {
       const timer = setTimeout(triggerComplete, 3000);
       return () => clearTimeout(timer);
     }
   }, [videoError, triggerComplete]);
+
+  // ── Autoplay with sound ──────────────────────────────────────────
+  // Browsers block autoplay of unmuted video. Strategy:
+  //   1. Try to play WITH audio first (works if the browser's media
+  //      engagement score allows it, or the user previously interacted)
+  //   2. If blocked, fall back to muted playback so at least the video
+  //      is visible, then try to unmute on the first user interaction.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || videoError) return;
+
+    // Attempt 1: play with audio
+    video.muted = false;
+    const playPromise = video.play();
+
+    if (playPromise) {
+      playPromise.catch(() => {
+        // Browser blocked unmuted autoplay — retry muted
+        video.muted = true;
+        video.play().catch(() => {
+          // Even muted autoplay failed — mark as error
+          setVideoError(true);
+        });
+      });
+    }
+  }, [videoError]);
+
+  // ── Unmute on first user interaction ─────────────────────────────
+  // If we fell back to muted, any click/keypress lets us unmute.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !video.muted) return;
+
+    const unmute = () => {
+      if (videoRef.current && videoRef.current.muted) {
+        videoRef.current.muted = false;
+      }
+      window.removeEventListener("click", unmute);
+      window.removeEventListener("keydown", unmute);
+    };
+
+    window.addEventListener("click", unmute);
+    window.addEventListener("keydown", unmute);
+
+    return () => {
+      window.removeEventListener("click", unmute);
+      window.removeEventListener("keydown", unmute);
+    };
+  }, []);
 
   const handleVideoEnded = () => {
     triggerComplete();
@@ -57,8 +104,6 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         <video
           ref={videoRef}
           src="/assets/splash/SPLASH.mp4"
-          autoPlay
-          muted
           playsInline
           onEnded={handleVideoEnded}
           onError={handleVideoError}
