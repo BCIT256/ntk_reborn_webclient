@@ -1,7 +1,6 @@
 "use client";
 
 import { ClientToServer, ServerToClient } from "./protocol";
-import { md5 } from "./utils/md5";
 
 class GameSocket {
   private socket: WebSocket | null = null;
@@ -30,19 +29,6 @@ class GameSocket {
       // Reset retry state on successful connection
       this.retryCount = 0;
       this.reconnectStartTime = 0;
-      
-      // Use the custom MD5 implementation for the password hash
-      const password = "test";
-      const passwordHash = md5(password);
-
-      // Sending LoginRequest using the required adjacent tagging format
-      this.send({
-        type: "LoginRequest",
-        payload: {
-          username: "Admin",
-          password_hash: passwordHash
-        }
-      });
     };
 
     this.socket.onmessage = (event) => {
