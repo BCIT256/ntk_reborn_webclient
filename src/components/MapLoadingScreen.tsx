@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface MapLoadingScreenProps {
   onComplete: () => void;
+  targetMapId?: any;
 }
 
 const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
