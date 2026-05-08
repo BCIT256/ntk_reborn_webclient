@@ -14,7 +14,7 @@ export class GameApp {
   private keyboard: KeyboardManager;
   private ui: DOMOverlay;
 
-  constructor(canvasContainer: HTMLElement) {
+  constructor(canvasContainer: HTMLElement, initialSpawnData: any = null) {
     this.app = new PIXI.Application({
       resizeTo: window,
       backgroundColor: 0x1099bb,
@@ -31,10 +31,10 @@ export class GameApp {
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
 
-    this.init();
+    this.init(initialSpawnData);
   }
 
-  private init() {
+  private init(initialSpawnData: any = null) {
     this.mapRenderer.init();
     
     socket.onMessage((packet) => {
@@ -55,6 +55,38 @@ export class GameApp {
     });
 
     socket.connect();
+
+    // Process initial spawn data if provided
+    if (initialSpawnData) {
+      console.log("Processing initial spawn data:", initialSpawnData);
+      
+      // Load the initial map
+      this.mapRenderer.loadMap(initialSpawnData.map_id);
+      
+      // Spawn the player entity
+      this.entityRenderer.handlePacket({
+        type: "SpawnCharacter",
+        payload: {
+          entity_id: initialSpawnData.entity_id,
+          x: initialSpawnData.x,
+          y: initialSpawnData.y,
+          direction: initialSpawnData.direction || 0,
+          name: initialSpawnData.name || "Player",
+          speed: initialSpawnData.speed || 1,
+          state: initialSpawnData.state || 0,
+          sex: initialSpawnData.sex || 0,
+          face: initialSpawnData.face || 0,
+          face_color: initialSpawnData.face_color || 0,
+          hair: initialSpawnData.hair || 0,
+          hair_color: initialSpawnData.hair_color || 0,
+          skin_color: initialSpawnData.skin_color || 0,
+          equipment: initialSpawnData.equipment || [],
+          is_grouped: initialSpawnData.is_grouped || false,
+          is_pk: initialSpawnData.is_pk || false,
+          name_color: initialSpawnData.name_color || 0
+        }
+      });
+    }
 
     this.app.ticker.add(() => {
       // Client-Side Prediction logic
