@@ -32,7 +32,19 @@ const Index = () => {
       }
     };
 
+    const handleConnectionLost = () => {
+      console.log("Connection lost — returning to login screen.");
+      // Tear down the running game
+      if (gameRef.current) {
+        gameRef.current.destroy();
+        gameRef.current = null;
+      }
+      setSpawnPayload(null);
+      setGameState("unauthenticated");
+    };
+
     socket.onMessage(handleMessage);
+    socket.onConnectionLost(handleConnectionLost);
     socket.connect();
 
     return () => {
