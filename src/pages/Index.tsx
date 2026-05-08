@@ -5,7 +5,7 @@ import MapLoadingScreen from "../components/MapLoadingScreen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { md5 } from "../utils/md5"; // Ensure this matches your file path
+import { md5 } from "../utils/md5";
 
 type GameState = "unauthenticated" | "patching" | "playing";
 
@@ -20,21 +20,18 @@ const Index = () => {
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    // FIXED: Listen for MapChange instead of LoginSuccess
+    // Listen for MapChange to trigger patching
     const handleMessage = (packet: any) => {
       if (packet.type === "MapChange") {
         console.log("Login successful! Intercepted MapChange:", packet.payload);
-        
-        // TODO: You will eventually need to pass packet.payload.map_id 
-        // to the MapLoadingScreen so it knows which map to verify first.
         setGameState("patching");
       }
     };
 
     socket.onMessage(handleMessage);
     
-    // Connect to the WebSocket as soon as the page loads
-    socket.connect();
+    // Don't auto-connect - wait for user to submit form
+    // socket.connect();
 
     return () => {
       if (gameRef.current) {
@@ -58,6 +55,9 @@ const Index = () => {
     setIsConnecting(true);
 
     const hashedPassword = md5(password);
+
+    // Connect to WebSocket first
+    socket.connect();
 
     // Send the correctly formatted Adjacently Tagged JSON
     socket.send({
