@@ -41,6 +41,9 @@ export class GameApp {
     this.camera = new Camera();
     this.app.stage.addChild(this.camera.container);
 
+    // Map renderer is added FIRST so it renders BEHIND everything else
+    this.mapRenderer = new MapRenderer(this.camera.container);
+
     // Entity layer sits above the map so entities render on top of tiles
     this.entityLayer = new PIXI.Container();
     this.camera.container.addChild(this.entityLayer);
@@ -59,8 +62,6 @@ export class GameApp {
 
     // Damage number manager (added to camera container so it scrolls with the world)
     this.damageNumbers = new DamageNumberManager(this.camera.container);
-
-    this.mapRenderer = new MapRenderer(this.camera.container);
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
     this.hud = new HUDManager();
