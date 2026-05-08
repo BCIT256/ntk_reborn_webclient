@@ -14,24 +14,26 @@ const Index = () => {
   const gameRef = useRef<GameApp | null>(null);
   const [gameState, setGameState] = useState<GameState>("unauthenticated");
   
+  // NEW: Store the spawn data while we patch!
+  const [spawnPayload, setSpawnPayload] = useState<any>(null);
+  
   // Form State
   const [username, setUsername] = useState("Admin");
   const [password, setPassword] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    // Listen for MapChange to trigger patching
     const handleMessage = (packet: any) => {
       if (packet.type === "MapChange") {
         console.log("Login successful! Intercepted MapChange:", packet.payload);
+        // Save the map_id, x, and y for when the game boots
+        setSpawnPayload(packet.payload);
         setGameState("patching");
       }
     };
 
     socket.onMessage(handleMessage);
-    
-    // Don't auto-connect - wait for user to submit form
-    // socket.connect();
+    socket.connect();
 
     return () => {
       if (gameRef.current) {
@@ -42,24 +44,19 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    // Initialize game only when in 'playing' state
-    if (gameState === "playing" && containerRef.current && !gameRef.current) {
-      gameRef.current = new GameApp(containerRef.current);
+    // NEW: Pass the spawnPayload into GameApp when it initializes
+    if (gameState === "playing" && containerRef.current && !gameRef.current && spawnPayload) {
+      gameRef.current = new GameApp(containerRef.current, spawnPayload);
     }
-  }, [gameState]);
+  }, [gameState, spawnPayload]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
 
     setIsConnecting(true);
-
     const hashedPassword = md5(password);
 
-    // Connect to WebSocket first
-    socket.connect();
-
-    // Send the correctly formatted Adjacently Tagged JSON
     socket.send({
       type: "LoginRequest",
       payload: {
@@ -68,7 +65,6 @@ const Index = () => {
       },
     });
 
-    // Reset connecting state after a brief timeout if no response is received
     setTimeout(() => setIsConnecting(false), 2000);
   };
 
@@ -120,8 +116,12 @@ const Index = () => {
         </div>
       )}
 
-      {gameState === "patching" && (
-        <MapLoadingScreen onComplete={() => setGameState("playing")} />
+      {/* NEW: Pass the target map_id to the loading screen so it can prioritize it if needed */}
+      {gameState === "patching" && spawnPayload && (
+        <MapLoadingScreen 
+            targetMapId={spawnPayload.map_id} 
+            onComplete={() => setGameState("playing")} 
+        />
       )}
 
       {gameState === "playing" && (
