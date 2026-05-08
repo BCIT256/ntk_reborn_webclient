@@ -24,6 +24,11 @@ class GameSocket {
   private readonly RETRY_DELAY_MS = 5_000;
 
   connect() {
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      console.log("Socket already open or connecting. Aborting connect attempt.");
+      return;
+    }
+
     console.log(`Connecting to ${this.url}...`);
 
     if (this.reconnectStartTime === 0) {

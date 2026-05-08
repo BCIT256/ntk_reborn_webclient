@@ -29,6 +29,27 @@ const Index = () => {
   // Connection state
   const [isOnline, setIsOnline] = useState(socket.connected);
 
+  // ── Periodic Reconnect Check ────────────────────────────────
+  useEffect(() => {
+    let interval: ReturnType<typeof setTimeout> | null = null;
+
+    if (gameState === "unauthenticated" && !isOnline) {
+      // Start periodic check only when on the login screen and offline
+      interval = setInterval(() => {
+        console.log("Attempting periodic reconnect...");
+        // Calling connect() will attempt to establish a new connection.
+        // If successful, handleConnect will be called, setting isOnline to true.
+        socket.connect();
+      }, 5000); // Check every 5 seconds
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [gameState, isOnline]);
+
   // ── Login screen music ──────────────────────────────────────────────
   const fadeOutLoginMusic = useCallback(() => {
     const audio = loginAudioRef.current;
