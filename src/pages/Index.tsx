@@ -40,6 +40,7 @@ const Index = () => {
         gameRef.current = null;
       }
       setSpawnPayload(null);
+      setPassword(""); // Clear password on disconnect
       setGameState("unauthenticated");
     };
 
@@ -68,6 +69,9 @@ const Index = () => {
 
     setIsConnecting(true);
     const hashedPassword = md5(password);
+
+    // Clear plaintext password from React state immediately after hashing
+    setPassword("");
 
     socket.send({
       type: "LoginRequest",
@@ -105,13 +109,14 @@ const Index = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-slate-300">Password</Label>
-                <Input 
-                  id="password" 
+                <Input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-slate-950 border-slate-700 text-white"
                   placeholder="••••••••"
+                  autoComplete="off"
                   required
                 />
               </div>

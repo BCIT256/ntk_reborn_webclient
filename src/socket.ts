@@ -37,18 +37,20 @@ class GameSocket {
     this.socket.onmessage = (event) => {
       try {
         const data: ServerToClient = JSON.parse(event.data);
-        console.log("INCOMING:", data.type, data.payload);
+        // Log type only; omit payload to avoid leaking sensitive data to console
+        console.log("INCOMING:", data.type);
         if (data.type === "LoginSuccess") {
           this.localEntityId = data.payload.entity_id;
         }
         this.onMessageCallbacks.forEach(cb => cb(data));
       } catch (e) {
-        console.error("Failed to parse incoming packet:", event.data);
+        console.error("Failed to parse incoming packet");
       }
     };
 
     this.socket.onclose = () => {
       console.log("Disconnected from server.");
+      this.localEntityId = null;
       this.scheduleReconnect();
     };
 
@@ -90,6 +92,9 @@ class GameSocket {
     this.onConnectionLostCallbacks.push(callback);
   }
 
+  /** Packet types whose payloads should be redacted from console logs. */
+  private SENSITIVE_PACKET_TYPES = new Set(["LoginRequest"]);
+
   /**
    * Sends a message to the server.
    * The 'packet' object already contains 'type' and 'payload' properties
@@ -98,10 +103,14 @@ class GameSocket {
   send(packet: ClientToServer) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       const message = JSON.stringify(packet);
-      console.log("OUTGOING:", message);
+      if (this.SENSITIVE_PACKET_TYPES.has(packet.type)) {
+        console.log("OUTGOING:", packet.type, "[payload redacted]");
+      } else {
+        console.log("OUTGOING:", message);
+      }
       this.socket.send(message);
     } else {
-      console.warn("Socket not open. Packet dropped:", packet);
+      console.warn("Socket not open. Packet dropped:", packet.type);
     }
   }
 
