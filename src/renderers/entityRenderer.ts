@@ -12,26 +12,25 @@ export class EntityRenderer {
   }
 
   handlePacket(packet: ServerToClient): { playerMoved: boolean, x: number, y: number } | null {
-    if ("SpawnCharacter" in packet) {
-      const data = packet.SpawnCharacter;
-      this.spawnCharacter(data);
-      // For now, assume the first character spawned is the player
+    const { type, payload } = packet;
+
+    if (type === "SpawnCharacter") {
+      this.spawnCharacter(payload);
       if (this.playerEntityId === null) {
-        this.playerEntityId = data.entity_id;
+        this.playerEntityId = payload.entity_id;
       }
-    } else if ("EntityMove" in packet) {
-      const data = packet.EntityMove;
-      const entity = this.entities.get(data.entity_id);
+    } else if (type === "EntityMove") {
+      const entity = this.entities.get(payload.entity_id);
       if (entity) {
-        entity.x = data.x * this.TILE_SIZE;
-        entity.y = data.y * this.TILE_SIZE;
+        entity.x = payload.x * this.TILE_SIZE;
+        entity.y = payload.y * this.TILE_SIZE;
         
-        if (data.entity_id === this.playerEntityId) {
+        if (payload.entity_id === this.playerEntityId) {
           return { playerMoved: true, x: entity.x, y: entity.y };
         }
       }
-    } else if ("EntityRemove" in packet) {
-      this.removeEntity(packet.EntityRemove.entity_id);
+    } else if (type === "EntityRemove") {
+      this.removeEntity(payload.entity_id);
     }
     return null;
   }

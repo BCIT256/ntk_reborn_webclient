@@ -38,22 +38,22 @@ export class GameApp {
     this.mapRenderer.init();
     
     socket.onMessage((packet) => {
-      // Trigger the Map Fetch when the server tells us we changed maps
-      if ("MapChange" in packet) {
-        this.mapRenderer.loadMap(packet.MapChange.map_id);
+      // Handle messages based on the 'type' field
+      if (packet.type === "MapChange") {
+        this.mapRenderer.loadMap(packet.payload.map_id);
       }
 
       this.entityRenderer.handlePacket(packet);
       
-      if ("SystemMessage" in packet) {
-        this.ui.addMessage(packet.SystemMessage.message);
+      if (packet.type === "SystemMessage") {
+        this.ui.addMessage(packet.payload.message);
       }
     });
 
     socket.connect();
 
     this.app.ticker.add(() => {
-      // Game loop logic (inputs, etc)
+      this.keyboard.update();
     });
   }
 

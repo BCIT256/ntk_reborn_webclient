@@ -25,7 +25,10 @@ export class KeyboardManager {
     else if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) direction = 3;
 
     if (direction !== -1) {
-      socket.send({ Move: { direction } });
+      socket.send({ 
+        type: "Move", 
+        payload: { direction } 
+      });
       this.lastMoveTime = now;
     }
   }
