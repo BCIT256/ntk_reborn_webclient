@@ -144,7 +144,7 @@ const Index = () => {
           {/* ── Login Background Music ──────────────────────────── */}
           <audio
             ref={loginAudioRef}
-            src="/assets/login/login_music.mp3"
+            src="/assets/login/Yuroxia_login_screen.mp3"
             loop
             preload="auto"
           />
