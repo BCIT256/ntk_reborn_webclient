@@ -37,12 +37,19 @@ export class GameApp {
   private init(initialSpawnData: any = null) {
     this.mapRenderer.init();
     
+    // Load initial map and position player if spawn data is provided
+    if (initialSpawnData) {
+      this.mapRenderer.loadMap(initialSpawnData.map_id);
+      if (initialSpawnData.x !== undefined && initialSpawnData.y !== undefined) {
+        this.entityRenderer.handleResync(initialSpawnData.x, initialSpawnData.y);
+      }
+    }
+    
     socket.onMessage((packet) => {
       if (packet.type === "MapChange") {
         this.mapRenderer.loadMap(packet.payload.map_id);
       }
 
-      // Handle the Resync/Rubberband packet
       if (packet.type === "PlayerPosition") {
         this.entityRenderer.handleResync(packet.payload.x, packet.payload.y);
       }
@@ -54,54 +61,17 @@ export class GameApp {
       }
     });
 
-    socket.connect();
-
-    // Process initial spawn data if provided
-    if (initialSpawnData) {
-      console.log("Processing initial spawn data:", initialSpawnData);
-      
-      // Load the initial map
-      this.mapRenderer.loadMap(initialSpawnData.map_id);
-      
-      // Spawn the player entity
-      this.entityRenderer.handlePacket({
-        type: "SpawnCharacter",
-        payload: {
-          entity_id: initialSpawnData.entity_id,
-          x: initialSpawnData.x,
-          y: initialSpawnData.y,
-          direction: initialSpawnData.direction || 0,
-          name: initialSpawnData.name || "Player",
-          speed: initialSpawnData.speed || 1,
-          state: initialSpawnData.state || 0,
-          sex: initialSpawnData.sex || 0,
-          face: initialSpawnData.face || 0,
-          face_color: initialSpawnData.face_color || 0,
-          hair: initialSpawnData.hair || 0,
-          hair_color: initialSpawnData.hair_color || 0,
-          skin_color: initialSpawnData.skin_color || 0,
-          equipment: initialSpawnData.equipment || [],
-          is_grouped: initialSpawnData.is_grouped || false,
-          is_pk: initialSpawnData.is_pk || false,
-          name_color: initialSpawnData.name_color || 0
-        }
-      });
-    }
+    // Note: socket.connect() is NOT called here because Index.tsx already manages the connection
 
     this.app.ticker.add(() => {
-      // Client-Side Prediction logic
       this.keyboard.update((direction) => {
-        // 1. Move locally instantly
         this.entityRenderer.predictMove(direction);
-        
-        // 2. Send the packet to the server
         socket.send({ 
           type: "Move", 
           payload: { direction } 
         });
       });
 
-      // Update camera to follow player
       const playerPos = this.entityRenderer.getPlayerPosition();
       if (playerPos) {
         this.camera.centerOn(playerPos.x, playerPos.y, this.app.screen.width, this.app.screen.height);
