@@ -33,8 +33,8 @@ export class MapRenderer {
     let mapData;
 
     try {
-      // Try to fetch from the real endpoint
-      const response = await fetch(`http://localhost:3000/api/maps/${mapId}`);
+      // Try to fetch from the real endpoint with the requested .json extension
+      const response = await fetch(`/api/maps/${mapId}.json`);
       if (!response.ok) {
         throw new Error(`Map ${mapId} not found (Status: ${response.status})`);
       }
