@@ -28,6 +28,9 @@ export class EntityRenderer {
   readonly entityId: number;
 
   // Smooth-movement state
+  // visualX / visualY represent the CONTAINER's world position in pixels.
+  // The sprite itself stays at (0, 0) inside the container so the nameTag
+  // (positioned relative to the container) follows the entity automatically.
   private visualX: number = 0;
   private visualY: number = 0;
   private targetX: number = 0;
@@ -74,6 +77,9 @@ export class EntityRenderer {
       this.sprite = this.createFallbackAnimatedSprite(color);
     }
 
+    // Sprite sits at (0,0) inside the container — the container moves instead
+    this.sprite.x = 0;
+    this.sprite.y = 0;
     this.container.addChild(this.sprite);
 
     // ─── Name tag ───────────────────────────────────────────────────
@@ -87,6 +93,7 @@ export class EntityRenderer {
       align: "center",
     } as PIXI.TextStyle);
     this.nameTag.anchor.set(0.5, 1);
+    // Positioned relative to the container (which moves with the entity)
     this.nameTag.x = this.TILE_SIZE / 2;
     this.nameTag.y = -4;
     this.container.addChild(this.nameTag);
@@ -97,14 +104,17 @@ export class EntityRenderer {
   handleResync(x: number, y: number) {
     if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return;
 
+    // Convert grid coordinates → pixel values
     this.targetX = x * this.TILE_SIZE;
     this.targetY = y * this.TILE_SIZE;
 
     // Snap instantly to the authoritative server position
     this.visualX = this.targetX;
     this.visualY = this.targetY;
-    this.sprite.x = this.visualX;
-    this.sprite.y = this.visualY;
+
+    // Immediately update the container's position so rendering is correct this frame
+    this.container.x = this.visualX;
+    this.container.y = this.visualY;
 
     this.setIdle();
   }
@@ -115,8 +125,21 @@ export class EntityRenderer {
    */
   moveToTarget(x: number, y: number, direction: number) {
     this.direction = direction;
-    this.targetX = x * this.TILE_SIZE;
-    this.targetY = y * this.TILE_SIZE;
+    const newTargetX = x * this.TILE_SIZE;
+    const newTargetY = y * this.TILE_SIZE;
+
+    // If already at this exact tile, just face the direction — don't walk in place
+    const dx = newTargetX - this.visualX;
+    const dy = newTargetY - this.visualY;
+    if (Math.sqrt(dx * dx + dy * dy) <= SNAP_THRESHOLD) {
+      this.targetX = newTargetX;
+      this.targetY = newTargetY;
+      this.setIdle();
+      return;
+    }
+
+    this.targetX = newTargetX;
+    this.targetY = newTargetY;
     this.setWalking();
   }
 
@@ -142,11 +165,12 @@ export class EntityRenderer {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > SNAP_THRESHOLD) {
+      // Still moving — interpolate toward the target
       const step = Math.min(MOVE_SPEED * dt, dist);
       this.visualX += (dx / dist) * step;
       this.visualY += (dy / dist) * step;
-    } else if (this.visualX !== this.targetX || this.visualY !== this.targetY) {
-      // Close enough — snap to target tile
+    } else {
+      // At (or very close to) the target — snap and ensure idle
       this.visualX = this.targetX;
       this.visualY = this.targetY;
 
@@ -155,8 +179,9 @@ export class EntityRenderer {
       }
     }
 
-    this.sprite.x = this.visualX;
-    this.sprite.y = this.visualY;
+    // Move the container to the world position; sprite stays at (0,0) inside it
+    this.container.x = this.visualX;
+    this.container.y = this.visualY;
   }
 
   getPlayerPosition() {

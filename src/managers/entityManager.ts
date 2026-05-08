@@ -55,6 +55,7 @@ export class EntityManager {
 
     const entity = new EntityRenderer(this.container, config);
     entity.handleResync(data.x, data.y);
+    // Set facing direction from spawn data (moveToTarget handles already-at-target gracefully)
     entity.moveToTarget(data.x, data.y, data.direction);
     this.entities.set(data.entity_id, entity);
 
@@ -88,15 +89,10 @@ export class EntityManager {
 
     // Z-sort: entities with higher Y render in front (painter's algorithm)
     const children = this.container.children;
-    // Only sort if there are at least 2 entity containers
     if (children.length >= 2) {
-      // Sort the container's children by their entity's visualY
-      // We store visualY on each EntityRenderer's sprite; read sprite.y
+      // Each child is an EntityRenderer's container, positioned at the entity's world Y
       children.sort((a, b) => {
-        // Each child is an EntityRenderer's container; its first child is the sprite
-        const aY = (a as Container).children[0]?.y ?? 0;
-        const bY = (b as Container).children[0]?.y ?? 0;
-        return aY - bY;
+        return (a as Container).y - (b as Container).y;
       });
     }
   }
