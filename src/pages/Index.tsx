@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { GameApp } from "../gameMain";
 import { socket } from "../socket";
 import MapLoadingScreen from "../components/MapLoadingScreen";
+import SplashScreen from "../components/SplashScreen";
+import TitleScreen from "../components/TitleScreen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { md5 } from "../utils/md5";
 import { Wifi, WifiOff } from "lucide-react";
 
-type GameState = "unauthenticated" | "patching" | "playing";
+type GameState = "splash" | "title" | "unauthenticated" | "patching" | "playing";
 
 const Index = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<GameApp | null>(null);
-  const [gameState, setGameState] = useState<GameState>("unauthenticated");
+  const [gameState, setGameState] = useState<GameState>("splash");
 
   // Store the spawn data while we patch
   const [spawnPayload, setSpawnPayload] = useState<any>(null);
@@ -45,7 +47,7 @@ const Index = () => {
         gameRef.current = null;
       }
       setSpawnPayload(null);
-      setPassword(""); // Clear password on disconnect
+      setPassword("");
       setIsOnline(false);
       setGameState("unauthenticated");
     };
@@ -54,6 +56,8 @@ const Index = () => {
     socket.onConnect(handleConnect);
     socket.onDisconnect(handleDisconnect);
     socket.onConnectionLost(handleConnectionLost);
+
+    // Connect to server in background during title screen
     socket.connect();
 
     return () => {
@@ -77,7 +81,6 @@ const Index = () => {
     setIsConnecting(true);
     const hashedPassword = md5(password);
 
-    // Clear plaintext password from React state immediately after hashing
     setPassword("");
 
     socket.send({
@@ -95,6 +98,17 @@ const Index = () => {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-black relative">
+      {/* ── Splash Screen ────────────────────────────────────────── */}
+      {gameState === "splash" && (
+        <SplashScreen onComplete={() => setGameState("title")} />
+      )}
+
+      {/* ── Title Screen ─────────────────────────────────────────── */}
+      {gameState === "title" && (
+        <TitleScreen onComplete={() => setGameState("unauthenticated")} />
+      )}
+
+      {/* ── Login Screen ─────────────────────────────────────────── */}
       {gameState === "unauthenticated" && (
         <div className="flex flex-col items-center justify-center h-full bg-slate-950">
           <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
@@ -173,6 +187,7 @@ const Index = () => {
         </div>
       )}
 
+      {/* ── Map Loading ───────────────────────────────────────────── */}
       {gameState === "patching" && spawnPayload && (
         <MapLoadingScreen
           targetMapId={spawnPayload.map_id}
@@ -180,6 +195,7 @@ const Index = () => {
         />
       )}
 
+      {/* ── Game Canvas ───────────────────────────────────────────── */}
       {gameState === "playing" && (
         <div ref={containerRef} className="w-full h-full" />
       )}

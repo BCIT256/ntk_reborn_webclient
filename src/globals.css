@@ -99,3 +99,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Title screen "Press any Key" breathing pulse ────────────────── */
+.title-pulse {
+  animation: titlePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
