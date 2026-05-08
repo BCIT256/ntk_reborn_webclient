@@ -6,7 +6,7 @@ export interface MapManifest {
 }
 
 class AssetManager {
-  private baseURL = "http://localhost:2010/assets/maps/";
+  private baseURL = "http://localhost:2011/assets/maps/";
   private remoteManifest: MapManifest | null = null;
   private cacheVersion = "v1";
 
