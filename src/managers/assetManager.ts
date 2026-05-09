@@ -22,11 +22,10 @@ class AssetManagerSingleton {
 
     public async fetchAssets() {
         try {
-            const [atlasRes, tblRes, palRes, sobjTblRes, tilecTblRes, tilecAtlasRes, manifestRes] = await Promise.all([
+            const [atlasRes, tblRes, palRes, tilecTblRes, tilecAtlasRes, manifestRes] = await Promise.all([
                 fetch('http://localhost:2011/assets/tiles/tile_atlas.json'),
                 fetch('http://localhost:2011/assets/tables/tile_tbl.json'),
                 fetch('http://localhost:2011/assets/palettes/palette_meta.json'),
-                fetch('http://localhost:2011/assets/tables/sobj_tbl.json'),
                 fetch('http://localhost:2011/assets/tables/tilec_tbl.json'),
                 fetch('http://localhost:2011/assets/tiles/tilec_atlas.json'),
                 fetch('http://localhost:2011/assets/maps/manifest.json')
@@ -36,13 +35,25 @@ class AssetManagerSingleton {
             this.tblData = await tblRes.json();
             this.paletteMeta = await palRes.json();
             
-            this.sobjTbl = await sobjTblRes.json();
             this.tilecTbl = await tilecTblRes.json();
             this.tilecAtlasMeta = await tilecAtlasRes.json();
             this.mapManifest = await manifestRes.json();
         } catch (error) {
-            console.error("Failed to load JSON metadata:", error);
+            console.error("Failed to load base JSON metadata:", error);
         }
+
+        try {
+            const sobjTblRes = await fetch('http://localhost:2011/assets/tables/sobj_tbl.json');
+            if (sobjTblRes.ok) {
+                this.sobjTbl = await sobjTblRes.json();
+            } else {
+                console.error("Failed to fetch sobj_tbl.json", sobjTblRes.status);
+            }
+        } catch (error) {
+            console.error("Error loading sobj_tbl.json:", error);
+        }
+
+        console.log("Metadata loaded successfully");
     }
 
     public async loadMap(mapId: number): Promise<void> {
@@ -61,6 +72,8 @@ class AssetManagerSingleton {
             console.error("Cannot load textures: Atlas metadata not loaded.");
             return;
         }
+
+        console.log(`Loading ${this.atlasMeta.atlas_count} tile atlases and ${this.tilecAtlasMeta.atlas_count} tilec atlases...`);
 
         // Must be NEAREST for strict pixel art rendering
         PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;

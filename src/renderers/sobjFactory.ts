@@ -45,9 +45,9 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         // 4. Create Sprite
         const sprite = new PIXI.Sprite(indexTexture);
         
-        // Stack the SObj parts using their left/top offsets
+        // Stack the SObj parts: Each sprite is a vertical layer. Offset y by -48 * layerIndex
         sprite.x = left;
-        sprite.y = top;
+        sprite.y = top - 48 * i;
 
         // 5. Setup Palette Filter
         let tilePaletteCount = 0;

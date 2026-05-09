@@ -27,7 +27,8 @@ export class GameApp {
             resizeTo: container,
             backgroundColor: 0x000000,
             resolution: window.devicePixelRatio || 1,
-            autoDensity: true
+            autoDensity: true,
+            autoStart: false // Don't start the ticker until assets are loaded
         });
 
         // Add the canvas to the React container
@@ -195,6 +196,9 @@ export class GameApp {
                 }
             }
         });
+
+        // Start the application ticker now that everything is loaded
+        this.app.ticker.start();
 
         console.log('Game bootstrap complete! Map renderer is running.');
     }
