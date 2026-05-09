@@ -79,6 +79,9 @@ export class GameApp {
         eventBus.emit("MapTransitionComplete");
     }
 
+    private lastViewMinX: number = -9999;
+    private lastViewMinY: number = -9999;
+
     private async init(spawnPayload: any) {
         // 2. Load all assets via AssetManager
         await AssetManager.fetchAssets();
@@ -132,10 +135,15 @@ export class GameApp {
                 // But for now, just static visible chunks update based on current pivot:
                 const viewMinX = (this.app.stage.pivot.x - this.app.screen.width / 2) / 48;
                 const viewMinY = (this.app.stage.pivot.y - this.app.screen.height / 2) / 48;
-                const viewMaxX = (this.app.stage.pivot.x + this.app.screen.width / 2) / 48;
-                const viewMaxY = (this.app.stage.pivot.y + this.app.screen.height / 2) / 48;
                 
-                this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                // Only update chunks if camera moved more than a fraction of a tile to save CPU
+                if (Math.abs(viewMinX - this.lastViewMinX) > 0.5 || Math.abs(viewMinY - this.lastViewMinY) > 0.5) {
+                    const viewMaxX = (this.app.stage.pivot.x + this.app.screen.width / 2) / 48;
+                    const viewMaxY = (this.app.stage.pivot.y + this.app.screen.height / 2) / 48;
+                    this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
+                    this.lastViewMinX = viewMinX;
+                    this.lastViewMinY = viewMinY;
+                }
                 
                 // Animation loop
                 this.lastAnimTime += this.app.ticker.deltaMS;

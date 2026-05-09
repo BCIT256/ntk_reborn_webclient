@@ -47,27 +47,9 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     sprite.x = (tileX * 48) + left;
     sprite.y = (tileY * 48) + top;
 
-    // 5. Setup Palette Filter
-    const paletteInfo = AssetManager.paletteMeta.tile_palettes.find((p: any) => p.index === paletteIndex);
-    const animRanges: [number, number][] = paletteInfo 
-        ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
-        : [];
-
-    // Assuming the palette texture is a single column of palettes, where paletteIndex maps to row
-    // If the palette texture is e.g. 256xN, we need normalized V coordinate for row:
-    // (We pass raw index, shader doesn't do / max_rows, so we must calculate it or pass raw if shader changes)
-    // We update the shader uniform uPaletteRow to use normalized 0.0-1.0 or pixel coordinates. 
-    // Wait, the shader uses `vec2((index + 0.5) / 256.0, uPaletteRow)`. So uPaletteRow should be normalized V.
-    // Assuming 256 rows max for example, we'd do (paletteIndex + 0.5) / paletteTexture.height
-    // Since texture might not be loaded completely synchronously for width/height in some setups, we might just pass paletteIndex / 256.0 if we know it's a fixed height.
-    // For now, let's pass a roughly normalized value, or assume the user wants it to be exact.
-    // Let's pass (paletteIndex + 0.5) / (AssetManager.paletteTexture.height || 256);
-    const rowHeight = AssetManager.paletteTexture.height || 256;
-    const normalizedRow = (paletteIndex + 0.5) / rowHeight;
-
-    const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
-    
-    sprite.filters = [filter];
+    // 5. Setup Palette Filter (Removed for performance)
+    // Filters are now applied at the container level in MapRenderer
+    // or handled via a Multi-Texture Batcher in the future.
 
     return sprite;
 }

@@ -24,6 +24,12 @@ export class ChunkedMapRenderer {
         
         this.objectContainer = new PIXI.Container();
         this.objectContainer.sortableChildren = true; // Essential for Y-sorting
+
+        // Apply dummy filters for now, pending Multi-Texture Batcher
+        // as the current shader is too complex to handle many tiles in one pass
+        const colorMatrix = new PIXI.ColorMatrixFilter();
+        this.groundContainer.filters = [colorMatrix];
+        this.objectContainer.filters = [colorMatrix];
     }
 
     public updateVisibleChunks(viewMinX: number, viewMinY: number, viewMaxX: number, viewMaxY: number) {
@@ -61,18 +67,8 @@ export class ChunkedMapRenderer {
 
     public updateAnimations(tick: number) {
         for (const chunk of this.loadedChunks.values()) {
-            for (const sprite of chunk.ground) {
-                if (sprite.filters && sprite.filters.length > 0) {
-                    sprite.filters[0].uniforms.uAnimOffset = tick;
-                }
-            }
-            for (const container of chunk.objects) {
-                for (const child of container.children) {
-                    if (child.filters && child.filters.length > 0) {
-                        child.filters[0].uniforms.uAnimOffset = tick;
-                    }
-                }
-            }
+            // Disabled per-sprite animation updates for performance
+            // Pending transition to Multi-Texture Batcher
         }
     }
 

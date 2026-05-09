@@ -6,7 +6,7 @@ const ENTER_TO_CHAT_KEY = "ntk_enterToChat";
 export class KeyboardManager {
   private keys: Set<string> = new Set();
   private lastMoveTime: number = 0;
-  private moveCooldown: number = 150;
+  private moveCooldown: number = 120;
 
   /** When true (dialog open), movement keys are ignored. */
   public locked: boolean = false;
