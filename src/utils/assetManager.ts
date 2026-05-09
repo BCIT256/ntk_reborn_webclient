@@ -36,14 +36,14 @@ class AssetManager {
 
     for (const { key, path } of spritesheetConfigs) {
       try {
-        const spritesheet = await PIXI.Assets.load(path) as PIXI.Spritesheet;
-        if (spritesheet && spritesheet.textures) {
+        const spritesheet = await PIXI.Assets.load(path) as PIXI.Spritesheet | undefined;
+        if (spritesheet && spritesheet.textures && Object.keys(spritesheet.textures).length > 0) {
           this.spritesheets.set(key, spritesheet);
           console.log(
             `Loaded spritesheet: ${key} (${Object.keys(spritesheet.textures).length} textures)`
           );
         } else {
-          console.warn(`Spritesheet ${key} loaded but has no textures`);
+          console.warn(`Spritesheet ${key} loaded but has no textures or returned an empty object. This is a placeholder warning and won't crash the loader.`);
         }
       } catch (error) {
         console.warn(`Failed to load spritesheet ${key} from ${path}:`, error);
@@ -183,7 +183,8 @@ class AssetManager {
 
   private async fetchMapWithRetry(mapId: string, retries = 1): Promise<any> {
     try {
-      const response = await fetch(`${this.baseURL}${mapId}.json`);
+      const paddedId = String(mapId).padStart(4, '0');
+      const response = await fetch(`${this.baseURL}tk${paddedId}.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {

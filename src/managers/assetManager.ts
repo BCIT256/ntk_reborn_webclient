@@ -47,8 +47,9 @@ class AssetManagerSingleton {
 
     public async loadMap(mapId: number): Promise<void> {
         try {
-            const paddedMapId = mapId.toString().padStart(4, '0');
-            const mapRes = await fetch(`http://localhost:2011/assets/maps/tk${paddedMapId}.json`);
+            const paddedId = String(mapId).padStart(4, '0');
+            const url = `http://localhost:2011/assets/maps/tk${paddedId}.json`;
+            const mapRes = await fetch(url);
             this.currentMap = await mapRes.json();
         } catch (error) {
             console.error(`Failed to load map ${mapId}:`, error);

@@ -75,11 +75,11 @@ export class GameApp {
         // Let MapChange handle the map loading, but if we need a default map immediately, we load it here or rely on spawnPayload.
         // Usually, the server will send a MapChange packet, so we don't strictly need tk0001 here unless required.
         // Wait for MapChange for initial map, or load based on spawnPayload if it contains map_id.
-        if (spawnPayload && spawnPayload.map_id) {
+        if (spawnPayload && spawnPayload.map_id !== undefined) {
             await AssetManager.loadMap(spawnPayload.map_id);
         } else {
-            // Fallback for PoC
-            await AssetManager.loadMap(1);
+            // Fallback for PoC: Load Map 0 explicitly through proper loadMap function
+            await AssetManager.loadMap(0);
         }
 
         if (!AssetManager.currentMap) {
