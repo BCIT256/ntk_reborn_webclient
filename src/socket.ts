@@ -11,6 +11,8 @@ const BUFFERED_EVENT_TYPES = new Set<string>([
   "ChatNormal",
 ]);
 
+export const entityNameCache = new Map<number, string>();
+
 class GameSocket {
   private socket: WebSocket | null = null;
   private url: string = "ws://localhost:2010";
@@ -107,6 +109,13 @@ class GameSocket {
     // (e.g., React components like BottomHUD for SystemMessage)
     switch (packet.type) {
       case "MapChange":
+        if (packet.payload.objects) {
+          packet.payload.objects.forEach((obj: any) => {
+            if (obj.entity_id && obj.name) {
+              entityNameCache.set(obj.entity_id, obj.name);
+            }
+          });
+        }
         eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
         eventBus.emit("MapChange", packet.payload);
         break;
@@ -114,6 +123,7 @@ class GameSocket {
         eventBus.emit("PlayerPosition", packet.payload);
         break;
       case "SpawnCharacter":
+        entityNameCache.set(packet.payload.entity_id, packet.payload.name);
         eventBus.emit("SpawnCharacter", packet.payload);
         break;
       case "EntityMove":

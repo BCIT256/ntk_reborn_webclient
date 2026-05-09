@@ -278,6 +278,13 @@ export class GameApp {
       await this.mapRenderer.loadMap(data.map_id);
       this.localPlayer.handleResync(data.x, data.y);
 
+      if (data.objects && data.objects.length > 0) {
+        data.objects.forEach((obj) => {
+          if (obj.entity_id === socket.localEntityId) return;
+          this.entityManager.handleSpawn(obj);
+        });
+      }
+
       const playerPos = this.localPlayer.getPlayerPosition();
       if (playerPos) {
         this.camera.centerOn(

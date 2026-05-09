@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { eventBus } from "../utils/eventBus";
-import { socket } from "../socket";
+import { socket, entityNameCache } from "../socket";
 
 interface ChatMessage {
   id: number;
@@ -39,7 +39,9 @@ const BottomHUD = () => {
       addMessage(data.message, "broadcast");
     });
     const unsubChat = eventBus.on("ChatNormal", (data) => {
-      const prefix = data.entity_id === socket.localEntityId ? "[You]" : `[${data.entity_id}]`;
+      const isLocal = data.entity_id === socket.localEntityId;
+      const name = isLocal ? "You" : entityNameCache.get(data.entity_id) || data.entity_id.toString();
+      const prefix = `[${name}]`;
       addMessage(`${prefix} ${data.message}`, "chat");
     });
     // Listen for FocusChatInput event to programmatically focus the input
