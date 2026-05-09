@@ -59,6 +59,23 @@ export class ChunkedMapRenderer {
         }
     }
 
+    public updateAnimations(tick: number) {
+        for (const chunk of this.loadedChunks.values()) {
+            for (const sprite of chunk.ground) {
+                if (sprite.filters && sprite.filters.length > 0) {
+                    sprite.filters[0].uniforms.uAnimOffset = tick;
+                }
+            }
+            for (const container of chunk.objects) {
+                for (const child of container.children) {
+                    if (child.filters && child.filters.length > 0) {
+                        child.filters[0].uniforms.uAnimOffset = tick;
+                    }
+                }
+            }
+        }
+    }
+
     private buildChunk(cx: number, cy: number, key: string) {
         const chunkCache: ChunkCache = { ground: [], objects: [] };
 
@@ -111,5 +128,13 @@ export class ChunkedMapRenderer {
         }
         
         this.loadedChunks.delete(key);
+    }
+
+    public destroy() {
+        for (const [key, chunk] of this.loadedChunks.entries()) {
+            this.cullChunk(key, chunk);
+        }
+        this.groundContainer.destroy({ children: true });
+        this.objectContainer.destroy({ children: true });
     }
 }

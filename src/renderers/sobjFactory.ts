@@ -22,7 +22,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
     
     // Position the container at the tile coordinates
     container.x = tileX * 48;
-    container.y = tileY * 48;
+    container.y = (tileY + 1) * 48;
 
     for (let i = 0; i < sobjDef.tile_indices.length; i++) {
         const tilecFrameIndex = sobjDef.tile_indices[i];
@@ -55,7 +55,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         
         // Stack the SObj parts: each part goes up by 48 pixels relative to the container
         sprite.x = left;
-        sprite.y = -(i * 48) + top;
+        sprite.y = -(i + 1) * 48 + top + 48;
 
         // 5. Setup Palette Filter (using tilec_palettes)
         const paletteInfo = AssetManager.paletteMeta.tilec_palettes.find(p => p.index === paletteIndex);
@@ -72,5 +72,6 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         container.addChild(sprite);
     }
 
+    container.zIndex = tileY;
     return container;
 }
