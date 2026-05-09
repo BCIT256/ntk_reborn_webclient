@@ -112,6 +112,8 @@ export class ChunkedMapRenderer {
             }
         }
 
+        console.log(`MapRenderer: Building chunk ${key} with ${chunkCache.ground.length} tiles`);
+
         this.loadedChunks.set(key, chunkCache);
     }
 

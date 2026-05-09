@@ -34,8 +34,7 @@ export class GameApp {
         const TILE_SIZE = 48;
         this.app.stage.pivot.x = x * TILE_SIZE;
         this.app.stage.pivot.y = y * TILE_SIZE;
-        this.app.stage.position.x = this.app.screen.width / 2;
-        this.app.stage.position.y = this.app.screen.height / 2;
+        this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
 
         const cameraTileX = x;
         const cameraTileY = y;
@@ -100,6 +99,8 @@ export class GameApp {
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
 
+        this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+
         if (spawnPayload && spawnPayload.x !== undefined && spawnPayload.y !== undefined) {
             this.centerCamera(spawnPayload.x, spawnPayload.y);
         } else {
@@ -109,6 +110,9 @@ export class GameApp {
         // 5. Add a Ticker loop to process chunks and animations
         this.app.ticker.add((delta) => {
             if (this.app.screen.width === 0) return;
+
+            // Ensure stage position is always centered (handles resizes)
+            this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
 
             if (this.mapRenderer) {
                 // Hardcoded static viewport for PoC (0,0 to 30,20 tiles)
