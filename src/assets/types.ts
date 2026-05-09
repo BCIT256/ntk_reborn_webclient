@@ -58,5 +58,6 @@ export interface MapData {
     map_id: number;
     width: number;
     height: number;
-    tiles: MapTile[];
+    tiles: number[] | MapTile[];
+    static_objects?: number[];
 }

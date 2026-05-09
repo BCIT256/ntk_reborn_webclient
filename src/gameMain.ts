@@ -2,10 +2,13 @@ import * as PIXI from 'pixi.js';
 import { AssetManager } from './managers/assetManager';
 import { ChunkedMapRenderer } from './renderers/mapRenderer';
 import { eventBus } from './utils/eventBus';
+import { KeyboardManager } from './inputs/keyboard';
+import { socket } from './socket';
 
 export class GameApp {
     private app: PIXI.Application;
     private mapRenderer: ChunkedMapRenderer | null = null;
+    private keyboardManager: KeyboardManager;
     private animationTick: number = 0;
     private ANIMATION_SPEED: number = 150;
     private lastAnimTime: number = 0;
@@ -25,6 +28,8 @@ export class GameApp {
 
         // Start initialization
         this.init(spawnPayload);
+
+        this.keyboardManager = new KeyboardManager();
 
         // Listen for MapChange events
         this.unsubscribeMapChange = eventBus.on("MapChange", this.handleMapChange.bind(this));
@@ -70,6 +75,8 @@ export class GameApp {
 
         // Center the camera on the provided x and y
         this.centerCamera(x, y);
+
+        eventBus.emit("MapTransitionComplete");
     }
 
     private async init(spawnPayload: any) {
@@ -107,9 +114,13 @@ export class GameApp {
             this.centerCamera(0, 0);
         }
 
+        eventBus.emit("MapTransitionComplete");
+
         // 5. Add a Ticker loop to process chunks and animations
         this.app.ticker.add((delta) => {
             if (this.app.screen.width === 0) return;
+
+            this.keyboardManager.update((dir) => this.handleMove(dir));
 
             // Ensure stage position is always centered (handles resizes)
             this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
@@ -139,12 +150,19 @@ export class GameApp {
         console.log('Game bootstrap complete! Map renderer is running.');
     }
 
+    private handleMove(direction: number) {
+        socket.send({ type: "Move", payload: { direction } });
+    }
+
     public destroy() {
         if (this.unsubscribeMapChange) {
             this.unsubscribeMapChange();
         }
         if (this.mapRenderer) {
             this.mapRenderer.destroy();
+        }
+        if (this.keyboardManager) {
+            this.keyboardManager.destroy();
         }
         this.app.destroy(true, { children: true });
     }

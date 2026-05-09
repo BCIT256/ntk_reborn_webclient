@@ -96,7 +96,12 @@ export class ChunkedMapRenderer {
 
                 // Support both {ab: 1} and flat number 1
                 const ab = typeof tileData === 'number' ? tileData : (tileData as any).ab;
-                const sobj = typeof tileData === 'number' ? -1 : (tileData as any).sobj;
+                let sobj = typeof tileData === 'number' ? -1 : (tileData as any).sobj;
+
+                // If the map uses a separate static_objects array and we have it, override sobj
+                if ((this.mapData as any).static_objects && (this.mapData as any).static_objects[index] !== undefined) {
+                    sobj = (this.mapData as any).static_objects[index];
+                }
 
                 if (ab !== undefined && ab !== null && ab >= 0) {
                     const groundSprite = createTileSprite(ab, x, y);
