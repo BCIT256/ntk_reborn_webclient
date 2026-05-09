@@ -183,7 +183,7 @@ class AssetManager {
 
   private async fetchMapWithRetry(mapId: string, retries = 1): Promise<any> {
     try {
-      const paddedId = String(mapId).padStart(4, '0');
+      const paddedId = String(mapId).padStart(6, '0');
       const response = await fetch(`${this.baseURL}tk${paddedId}.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();

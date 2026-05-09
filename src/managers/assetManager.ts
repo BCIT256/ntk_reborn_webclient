@@ -47,7 +47,7 @@ class AssetManagerSingleton {
 
     public async loadMap(mapId: number): Promise<void> {
         try {
-            const paddedId = String(mapId).padStart(4, '0');
+            const paddedId = String(mapId).padStart(6, '0');
             const url = `http://localhost:2011/assets/maps/tk${paddedId}.json`;
             const mapRes = await fetch(url);
             this.currentMap = await mapRes.json();
