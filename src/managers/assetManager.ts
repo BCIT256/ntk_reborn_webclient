@@ -72,31 +72,34 @@ class AssetManagerSingleton {
                 // Fetch the image as a blob to avoid raw Image crossOrigin issues
                 const res = await fetch(url);
                 if (!res.ok) {
-                    throw new Error(`Failed to fetch texture: ${res.statusText}`);
+                    console.error(`Failed to fetch texture: ${res.statusText} (${url})`);
+                    return new PIXI.BaseTexture();
                 }
                 const blob = await res.blob();
                 const objectUrl = URL.createObjectURL(blob);
                 
                 // Instead of PIXI.Assets.load, just create an Image and pass to BaseTexture
                 // This bypasses PIXI's internal asset parsing issues with blobs
-                return new Promise<PIXI.BaseTexture>((resolve, reject) => {
+                return new Promise<PIXI.BaseTexture>((resolve) => {
                     const img = new Image();
                     img.onload = () => {
                         const baseTex = new PIXI.BaseTexture(img, {
                             scaleMode: PIXI.SCALE_MODES.NEAREST
                         });
                         URL.revokeObjectURL(objectUrl);
+                        console.log(`Loaded texture: ${url}`);
                         resolve(baseTex);
                     };
                     img.onerror = (e) => {
                         URL.revokeObjectURL(objectUrl);
-                        reject(e);
+                        console.error(`Error loading image element for texture: ${url}`, e);
+                        resolve(new PIXI.BaseTexture());
                     };
                     img.src = objectUrl;
                 });
             } catch (err) {
                 console.error("Failed to load texture", url, err);
-                throw err;
+                return new PIXI.BaseTexture();
             }
         };
 

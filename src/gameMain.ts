@@ -108,6 +108,8 @@ export class GameApp {
 
         // 5. Add a Ticker loop to process chunks and animations
         this.app.ticker.add((delta) => {
+            if (this.app.screen.width === 0) return;
+
             if (this.mapRenderer) {
                 // Hardcoded static viewport for PoC (0,0 to 30,20 tiles)
                 // In a real app this would follow the player
