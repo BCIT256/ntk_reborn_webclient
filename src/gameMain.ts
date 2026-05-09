@@ -74,10 +74,10 @@ export class GameApp {
 
     // Helper: look up an entity's world position by entity_id.
     const getEntityPosition = (id: number): { x: number; y: number } | undefined => {
-      if (id === socket.localEntityId) {
+      if (Number(id) === Number(socket.localEntityId)) {
         return this.localPlayer.getPlayerPosition();
       }
-      const entity = this.entityManager.getEntity(id);
+      const entity = this.entityManager.getEntity(Number(id));
       if (entity) {
         return entity.getPlayerPosition();
       }
@@ -86,10 +86,10 @@ export class GameApp {
 
     // Helper: look up an entity renderer by entity_id.
     const getEntityRenderer = (id: number) => {
-      if (id === socket.localEntityId) {
+      if (Number(id) === Number(socket.localEntityId)) {
         return this.localPlayer;
       }
-      return this.entityManager.getEntity(id);
+      return this.entityManager.getEntity(Number(id));
     };
 
     // Damage number manager (added to camera container so it scrolls with the world)
@@ -124,6 +124,14 @@ export class GameApp {
       if (initialSpawnData.x !== undefined && initialSpawnData.y !== undefined) {
         this.localPlayer.handleResync(initialSpawnData.x, initialSpawnData.y);
       }
+      
+      // Spawn already existing entities
+      if (initialSpawnData.objects && initialSpawnData.objects.length > 0) {
+        initialSpawnData.objects.forEach((obj: any) => {
+          if (Number(obj.entity_id) === Number(socket.localEntityId)) return;
+          this.entityManager.handleSpawn(obj);
+        });
+      }
     }
 
     // ─── Dialog lock via EventBus ──────────────────────────────────
@@ -155,14 +163,14 @@ export class GameApp {
 
     this.eventUnsubs.push(
       eventBus.on("SpawnCharacter", (data) => {
-        if (data.entity_id === socket.localEntityId) return;
+        if (Number(data.entity_id) === Number(socket.localEntityId)) return;
         this.entityManager.handleSpawn(data);
       })
     );
 
     this.eventUnsubs.push(
       eventBus.on("EntityMove", (data) => {
-        if (data.entity_id === socket.localEntityId) {
+        if (Number(data.entity_id) === Number(socket.localEntityId)) {
           this.localPlayer.moveToTarget(data.x, data.y, data.direction);
         } else {
           this.entityManager.handleMove(data);
@@ -172,7 +180,7 @@ export class GameApp {
 
     this.eventUnsubs.push(
       eventBus.on("EntityRemove", (data) => {
-        this.entityManager.handleRemove(data.entity_id);
+        this.entityManager.handleRemove(Number(data.entity_id));
       })
     );
 
@@ -198,10 +206,10 @@ export class GameApp {
     // ─── Speech Bubbles: route ChatNormal to entity renderers ───────
     this.eventUnsubs.push(
       eventBus.on("ChatNormal", (data) => {
-        if (data.entity_id === socket.localEntityId) {
+        if (Number(data.entity_id) === Number(socket.localEntityId)) {
           this.localPlayer.showSpeechBubble(data.message);
         } else {
-          this.entityManager.showSpeechBubble(data.entity_id, data.message);
+          this.entityManager.showSpeechBubble(Number(data.entity_id), data.message);
         }
       })
     );
@@ -251,10 +259,10 @@ export class GameApp {
 
   /** Look up an entity's world position by entity_id. */
   private getEntityPosition(id: number): { x: number; y: number } | undefined {
-    if (id === socket.localEntityId) {
+    if (Number(id) === Number(socket.localEntityId)) {
       return this.localPlayer.getPlayerPosition();
     }
-    const entity = this.entityManager.getEntity(id);
+    const entity = this.entityManager.getEntity(Number(id));
     if (entity) {
       return entity.getPlayerPosition();
     }
@@ -280,7 +288,7 @@ export class GameApp {
 
       if (data.objects && data.objects.length > 0) {
         data.objects.forEach((obj) => {
-          if (obj.entity_id === socket.localEntityId) return;
+          if (Number(obj.entity_id) === Number(socket.localEntityId)) return;
           this.entityManager.handleSpawn(obj);
         });
       }

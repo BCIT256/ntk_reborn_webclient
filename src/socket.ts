@@ -71,7 +71,7 @@ class GameSocket {
         // Log type only; omit payload to avoid leaking sensitive data to console
         console.log("INCOMING:", data.type);
         if (data.type === "LoginSuccess") {
-          this.localEntityId = data.payload.entity_id;
+          this.localEntityId = Number(data.payload.entity_id);
         }
 
         // ─── Forward ALL server packets to the EventBus ──────────────

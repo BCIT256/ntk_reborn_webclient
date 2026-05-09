@@ -39,8 +39,10 @@ const BottomHUD = () => {
       addMessage(data.message, "broadcast");
     });
     const unsubChat = eventBus.on("ChatNormal", (data) => {
-      const isLocal = data.entity_id === socket.localEntityId;
-      const name = isLocal ? "You" : entityNameCache.get(data.entity_id) || data.entity_id.toString();
+      const entityId = Number(data.entity_id);
+      const localId = Number(socket.localEntityId);
+      const isLocal = entityId === localId;
+      const name = isLocal ? "You" : entityNameCache.get(entityId) || entityId.toString();
       const prefix = `[${name}]`;
       addMessage(`${prefix} ${data.message}`, "chat");
     });
