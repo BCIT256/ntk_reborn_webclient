@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientToServer, ServerToClient } from "./protocol";
+import { eventBus } from "./utils/eventBus";
 
 class GameSocket {
   private socket: WebSocket | null = null;
@@ -54,6 +55,12 @@ class GameSocket {
         if (data.type === "LoginSuccess") {
           this.localEntityId = data.payload.entity_id;
         }
+
+        // ─── Forward ALL server packets to the EventBus ──────────────
+        // This ensures events are available to all subscribers regardless
+        // of whether GameApp has been created yet.
+        this.forwardToEventBus(data);
+
         this.onMessageCallbacks.forEach(cb => cb(data));
       } catch (e) {
         console.error("Failed to parse incoming packet");
@@ -71,6 +78,64 @@ class GameSocket {
     this.socket.onerror = (error) => {
       console.error("WebSocket Error:", error);
     };
+  }
+
+  /**
+   * Bridges incoming server packets to the EventBus so all game systems
+   * (entity manager, UI, chat, etc.) receive events immediately.
+   */
+  private forwardToEventBus(packet: ServerToClient) {
+    switch (packet.type) {
+      case "MapChange":
+        eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
+        eventBus.emit("MapChange", packet.payload);
+        break;
+      case "PlayerPosition":
+        eventBus.emit("PlayerPosition", packet.payload);
+        break;
+      case "SpawnCharacter":
+        eventBus.emit("SpawnCharacter", packet.payload);
+        break;
+      case "EntityMove":
+        eventBus.emit("EntityMove", packet.payload);
+        break;
+      case "EntityRemove":
+        eventBus.emit("EntityRemove", packet.payload);
+        break;
+      case "EntityHealthUpdate":
+        eventBus.emit("EntityHealthUpdate", packet.payload);
+        break;
+      case "PlayerVitalsUpdate":
+        eventBus.emit("PlayerVitalsUpdate", packet.payload);
+        break;
+      case "DialogPopup":
+        eventBus.emit("DialogPopup", packet.payload);
+        break;
+      case "ShowMenu":
+        eventBus.emit("ShowMenu", packet.payload);
+        break;
+      case "SystemMessage":
+        eventBus.emit("SystemMessage", packet.payload);
+        break;
+      case "ChatNormal":
+        eventBus.emit("ChatNormal", packet.payload);
+        break;
+      case "InventoryUpdate":
+        eventBus.emit("InventoryUpdate", packet.payload);
+        break;
+      case "SpellListUpdate":
+        eventBus.emit("SpellListUpdate", packet.payload);
+        break;
+      case "PlaySound":
+        eventBus.emit("PlaySound", packet.payload);
+        break;
+      case "PlayAnimation":
+        eventBus.emit("PlayAnimation", packet.payload);
+        break;
+      case "DamageNumber":
+        eventBus.emit("DamageNumber", packet.payload);
+        break;
+    }
   }
 
   private scheduleReconnect() {
@@ -121,8 +186,6 @@ class GameSocket {
 
   /**
    * Sends a message to the server.
-   * The 'packet' object already contains 'type' and 'payload' properties
-   * which matches the Rust backend's #[serde(tag = "type", content = "payload")] requirement.
    */
   send(packet: ClientToServer) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -140,6 +203,18 @@ class GameSocket {
 
   onMessage(callback: (data: ServerToClient) => void) {
     this.onMessageCallbacks.push(callback);
+  }
+
+  /** Close the WebSocket and stop reconnecting. */
+  disconnect() {
+    this.resetRetryState();
+    if (this.socket) {
+      this.socket.onclose = null; // Prevent auto-reconnect
+      this.socket.close();
+      this.socket = null;
+    }
+    this.connected = false;
+    this.localEntityId = null;
   }
 }
 

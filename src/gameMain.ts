@@ -32,6 +32,9 @@ export class GameApp {
   /** Guards against concurrent map transitions. */
   private transitionInProgress: boolean = false;
 
+  /** Unsubscribe functions for all EventBus listeners. */
+  private eventUnsubs: (() => void)[] = [];
+
   constructor(canvasContainer: HTMLElement, initialSpawnData: any = null) {
     this.app = new PIXI.Application({
       resizeTo: canvasContainer,
@@ -44,9 +47,6 @@ export class GameApp {
     this.camera = new Camera();
 
     // ─── Enable Z-index sorting on all key containers ───────────────
-    // sortableChildren allows PIXI to respect zIndex values on children.
-    // Entities sort by Y (painter's algorithm); FX and damage numbers
-    // use high zIndex values so they always render on top.
     this.camera.container.sortableChildren = true;
     this.camera.container.zIndex = 0;
 
@@ -73,7 +73,6 @@ export class GameApp {
     this.entityManager = new EntityManager(this.entityLayer);
 
     // Helper: look up an entity's world position by entity_id.
-    // Used by DamageNumberManager and FxRenderer.
     const getEntityPosition = (id: number): { x: number; y: number } | undefined => {
       if (id === socket.localEntityId) {
         return this.localPlayer.getPlayerPosition();
@@ -86,7 +85,6 @@ export class GameApp {
     };
 
     // Helper: look up an entity renderer by entity_id.
-    // Used by FxRenderer to attach FX sprites to entity containers.
     const getEntityRenderer = (id: number) => {
       if (id === socket.localEntityId) {
         return this.localPlayer;
@@ -128,110 +126,74 @@ export class GameApp {
       }
     }
 
-    // ─── Dialog lock via EventBus ──────────────────────────────────────
-    eventBus.on("DialogOpened", () => {
-      this.keyboard.locked = true;
-    });
-    eventBus.on("DialogClosed", () => {
-      this.keyboard.locked = false;
-    });
+    // ─── Dialog lock via EventBus ──────────────────────────────────
+    this.eventUnsubs.push(
+      eventBus.on("DialogOpened", () => {
+        this.keyboard.locked = true;
+      }),
+      eventBus.on("DialogClosed", () => {
+        this.keyboard.locked = false;
+      })
+    );
 
-    // ─── Map Change: async teardown/rebuild handshake ──────────────────
-    eventBus.on("MapChange", (data) => {
-      this.handleMapChange(data);
-    });
+    // ─── Map Change: async teardown/rebuild handshake ──────────────
+    this.eventUnsubs.push(
+      eventBus.on("MapChange", (data) => {
+        this.handleMapChange(data);
+      })
+    );
 
     // ─── Other EventBus subscriptions ─────────────────────────────────
+    // NOTE: The socket→eventBus bridge now lives in socket.ts.
+    // We only subscribe to eventBus events here.
 
-    eventBus.on("PlayerPosition", (data) => {
-      this.localPlayer.handleResync(data.x, data.y);
-    });
+    this.eventUnsubs.push(
+      eventBus.on("PlayerPosition", (data) => {
+        this.localPlayer.handleResync(data.x, data.y);
+      })
+    );
 
-    eventBus.on("SpawnCharacter", (data) => {
-      if (data.entity_id === socket.localEntityId) return;
-      this.entityManager.handleSpawn(data);
-    });
+    this.eventUnsubs.push(
+      eventBus.on("SpawnCharacter", (data) => {
+        if (data.entity_id === socket.localEntityId) return;
+        this.entityManager.handleSpawn(data);
+      })
+    );
 
-    eventBus.on("EntityMove", (data) => {
-      if (data.entity_id === socket.localEntityId) {
-        this.localPlayer.moveToTarget(data.x, data.y, data.direction);
-      } else {
-        this.entityManager.handleMove(data);
-      }
-    });
+    this.eventUnsubs.push(
+      eventBus.on("EntityMove", (data) => {
+        if (data.entity_id === socket.localEntityId) {
+          this.localPlayer.moveToTarget(data.x, data.y, data.direction);
+        } else {
+          this.entityManager.handleMove(data);
+        }
+      })
+    );
 
-    eventBus.on("EntityRemove", (data) => {
-      this.entityManager.handleRemove(data.entity_id);
-    });
+    this.eventUnsubs.push(
+      eventBus.on("EntityRemove", (data) => {
+        this.entityManager.handleRemove(data.entity_id);
+      })
+    );
 
     // ─── Combat ────────────────────────────────────────────────────
-    eventBus.on("EntityHealthUpdate", (data) => {
-      if (data.damage <= 0) return;
+    this.eventUnsubs.push(
+      eventBus.on("EntityHealthUpdate", (data) => {
+        if (data.damage <= 0) return;
 
-      const pos = this.getEntityPosition(data.entity_id);
-      if (pos) {
-        this.damageNumbers.spawn(pos.x, pos.y, data.damage, data.hit_type);
-      }
-    });
+        const pos = this.getEntityPosition(data.entity_id);
+        if (pos) {
+          this.damageNumbers.spawn(pos.x, pos.y, data.damage, data.hit_type);
+        }
+      })
+    );
 
     // ─── Chat / System ──────────────────────────────────────────────
-    eventBus.on("SystemMessage", (data) => {
-      this.ui.addMessage(data.message);
-    });
-
-    // ─── Socket → EventBus bridge ──────────────────────────────────
-    // All incoming server packets are forwarded to the EventBus.
-    // PlaySound and PlayAnimation are also routed here.
-    socket.onMessage((packet) => {
-      switch (packet.type) {
-        case "MapChange":
-          eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
-          eventBus.emit("MapChange", packet.payload);
-          break;
-        case "PlayerPosition":
-          eventBus.emit("PlayerPosition", packet.payload);
-          break;
-        case "SpawnCharacter":
-          eventBus.emit("SpawnCharacter", packet.payload);
-          break;
-        case "EntityMove":
-          eventBus.emit("EntityMove", packet.payload);
-          break;
-        case "EntityRemove":
-          eventBus.emit("EntityRemove", packet.payload);
-          break;
-        case "EntityHealthUpdate":
-          eventBus.emit("EntityHealthUpdate", packet.payload);
-          break;
-        case "PlayerVitalsUpdate":
-          eventBus.emit("PlayerVitalsUpdate", packet.payload);
-          break;
-        case "DialogPopup":
-          eventBus.emit("DialogPopup", packet.payload);
-          break;
-        case "ShowMenu":
-          eventBus.emit("ShowMenu", packet.payload);
-          break;
-        case "SystemMessage":
-          eventBus.emit("SystemMessage", packet.payload);
-          break;
-        case "InventoryUpdate":
-          eventBus.emit("InventoryUpdate", packet.payload);
-          break;
-        case "SpellListUpdate":
-          eventBus.emit("SpellListUpdate", packet.payload);
-          break;
-        case "PlaySound":
-          eventBus.emit("PlaySound", packet.payload);
-          break;
-        case "PlayAnimation":
-          eventBus.emit("PlayAnimation", packet.payload);
-          break;
-        case "DamageNumber":
-          eventBus.emit("DamageNumber", packet.payload);
-          break;
-      }
-    });
+    this.eventUnsubs.push(
+      eventBus.on("SystemMessage", (data) => {
+        this.ui.addMessage(data.message);
+      })
+    );
 
     // ─── Game loop ─────────────────────────────────────────────────
     this.app.ticker.add(() => {
@@ -319,13 +281,19 @@ export class GameApp {
   }
 
   destroy() {
-    eventBus.clear();
+    // Unsubscribe all EventBus listeners to prevent leaks
+    this.eventUnsubs.forEach((unsub) => unsub());
+    this.eventUnsubs = [];
+
     this.entityManager.clearAll();
     this.damageNumbers.destroy();
     this.fxRenderer.destroy();
     this.audioManager.destroy();
     this.keyboard.destroy();
     this.mapRenderer.destroy();
-    this.app.destroy(true);
+    this.ui.destroy();
+
+    // Destroy the PIXI Application with all children to prevent GPU memory leaks
+    this.app.destroy(true, { children: true });
   }
 }

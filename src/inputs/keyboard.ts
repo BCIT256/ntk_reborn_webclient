@@ -13,14 +13,39 @@ export class KeyboardManager {
   public isInputLocked: boolean = false;
 
   private unsubs: (() => void)[] = [];
+  private keydownHandler: (e: KeyboardEvent) => void;
+  private keyupHandler: (e: KeyboardEvent) => void;
 
   constructor() {
-    window.addEventListener("keydown", (e) => {
+    this.keydownHandler = (e: KeyboardEvent) => {
       this.keys.add(e.code);
-    });
-    window.addEventListener("keyup", (e) => {
+
+      // ─── F1: Toggle System Menu ─────────────────────────────────
+      if (e.code === "F1") {
+        e.preventDefault();
+        eventBus.emit("ToggleSystemMenu");
+        return;
+      }
+
+      // ─── Hotbar keys (1-9, 0) ───────────────────────────────────
+      // Only fire if the chat input is NOT focused
+      const isChatFocused = this.isChatInputFocused();
+      if (!isChatFocused && !this.locked && !this.isInputLocked) {
+        const hotbarSlot = this.mapCodeToHotbarSlot(e.code, e.shiftKey);
+        if (hotbarSlot !== -1) {
+          e.preventDefault(); // Prevent browser scroll/tab behavior
+          eventBus.emit("HotbarSlot", { slot: hotbarSlot });
+          return;
+        }
+      }
+    };
+
+    this.keyupHandler = (e: KeyboardEvent) => {
       this.keys.delete(e.code);
-    });
+    };
+
+    window.addEventListener("keydown", this.keydownHandler);
+    window.addEventListener("keyup", this.keyupHandler);
 
     // Listen for map transition events to lock/unlock input
     this.unsubs.push(
@@ -34,12 +59,45 @@ export class KeyboardManager {
   }
 
   /**
+   * Checks whether the user is currently typing in the chat input.
+   * If so, movement and hotbar keys must NOT fire.
+   */
+  private isChatInputFocused(): boolean {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = (el as HTMLElement).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return true;
+    // Also check for contenteditable
+    if ((el as HTMLElement).isContentEditable) return true;
+    return false;
+  }
+
+  /**
+   * Maps a KeyboardEvent.code + shift state to a hotbar slot (0–19).
+   *   Digit1–Digit9  → slots 0–8   (displayed as "1"–"9")
+   *   Digit0          → slot 9     (displayed as "0")
+   *   Shift+Digit1–9  → slots 10–18 (displayed as "S1"–"S9")
+   *   Shift+Digit0    → slot 19    (displayed as "S0")
+   * Returns -1 if the key is not a hotbar key.
+   */
+  private mapCodeToHotbarSlot(code: string, shift: boolean): number {
+    const match = code.match(/^Digit([0-9])$/);
+    if (!match) return -1;
+    const digit = parseInt(match[1], 10);
+    const baseSlot = digit === 0 ? 9 : digit - 1; // 1→0, 2→1, …, 9→8, 0→9
+    return shift ? baseSlot + 10 : baseSlot;
+  }
+
+  /**
    * Checks for movement keys and triggers the callback if a move is allowed.
-   * Movement is blocked while `locked` is true (dialog lock)
-   * or `isInputLocked` is true (map transition).
+   * Movement is blocked while `locked` is true (dialog lock),
+   * `isInputLocked` is true (map transition), OR the chat input is focused.
    */
   update(onMove: (direction: number) => void) {
     if (this.locked || this.isInputLocked) return;
+
+    // CRITICAL: Don't move the character while typing in chat
+    if (this.isChatInputFocused()) return;
 
     const now = Date.now();
     if (now - this.lastMoveTime < this.moveCooldown) return;
@@ -57,6 +115,8 @@ export class KeyboardManager {
   }
 
   destroy() {
+    window.removeEventListener("keydown", this.keydownHandler);
+    window.removeEventListener("keyup", this.keyupHandler);
     this.unsubs.forEach((unsub) => unsub());
     this.unsubs = [];
   }

@@ -24,4 +24,10 @@ export class DOMOverlay {
     msg.style.pointerEvents = "auto";
     this.root.appendChild(msg);
   }
+
+  destroy() {
+    if (this.root.parentNode) {
+      this.root.parentNode.removeChild(this.root);
+    }
+  }
 }

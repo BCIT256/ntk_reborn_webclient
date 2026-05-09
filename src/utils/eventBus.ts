@@ -69,6 +69,8 @@ export interface GameEvents {
 
   // ─── Chat / System ─────────────────────────────────────────────────
   SystemMessage: { message: string };
+  BroadcastMessage: { message: string };
+  ChatNormal: { entity_id: number; message: string };
 
   // ─── UI Lock (keyboard / dialog) ───────────────────────────────────
   DialogOpened: void;
@@ -92,6 +94,11 @@ export interface GameEvents {
   PlaySound: { sound_id: number };
   PlayAnimation: { entity_id: number | null; anim_id: number; x: number | null; y: number | null };
   DamageNumber: { entity_id: number; amount: number; color: string };
+
+  // ─── UI Events (React ↔ PixiJS) ───────────────────────────────────
+  ToggleSystemMenu: void;
+  QuitToTitle: void;
+  HotbarSlot: { slot: number };
 }
 
 class EventBusClass {

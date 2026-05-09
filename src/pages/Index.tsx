@@ -5,6 +5,8 @@ import MapLoadingScreen, { MapTransitionOverlay } from "../components/MapLoading
 import SplashScreen from "../components/SplashScreen";
 import TitleScreen from "../components/TitleScreen";
 import InteractionOverlay from "../components/InteractionOverlay";
+import BottomHUD from "../components/BottomHUD";
+import SystemMenu from "../components/SystemMenu";
 import GameSidebar from "../components/GameSidebar";
 import { InteractionProvider } from "../hooks/useInteractionStore";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { md5 } from "../utils/md5";
 import { Wifi, WifiOff } from "lucide-react";
+import { eventBus } from "../utils/eventBus";
 
 type GameState = "splash" | "title" | "unauthenticated" | "patching" | "playing";
 
@@ -31,6 +34,33 @@ const Index = () => {
 
   // Connection state
   const [isOnline, setIsOnline] = useState(socket.connected);
+
+  // ── Quit to Title handler ───────────────────────────────────────
+  const quitToTitle = useCallback(() => {
+    // 1. Destroy the PIXI game (canvas, textures, memory)
+    if (gameRef.current) {
+      gameRef.current.destroy();
+      gameRef.current = null;
+    }
+
+    // 2. Close the WebSocket and stop auto-reconnect
+    socket.disconnect();
+
+    // 3. Clear eventBus listeners so stale handlers don't fire on reconnect
+    eventBus.clear();
+
+    // 4. Reset state back to title
+    setSpawnPayload(null);
+    setPassword("");
+    setIsOnline(false);
+    setGameState("title");
+  }, []);
+
+  // Listen for QuitToTitle event from SystemMenu
+  useEffect(() => {
+    const unsub = eventBus.on("QuitToTitle", quitToTitle);
+    return unsub;
+  }, [quitToTitle]);
 
   // ── Periodic Reconnect Check ────────────────────────────────
   useEffect(() => {
@@ -299,8 +329,12 @@ const Index = () => {
               onDrop={handleCanvasDrop}
             >
               <div ref={containerRef} className="w-full h-full" />
+
+              {/* ── React HUD overlays (above canvas) ──────────────── */}
               <InteractionOverlay />
               <MapTransitionOverlay />
+              <BottomHUD />
+              <SystemMenu />
             </div>
 
             {/* Right: Game Sidebar */}
