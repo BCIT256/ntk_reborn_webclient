@@ -2,18 +2,10 @@ import * as PIXI from 'pixi.js';
 import { AssetManager } from '../managers/assetManager';
 import { createPaletteFilter } from '../shaders/paletteShader';
 
-export function createSObjContainer(sobjIndex: number, tileX: number, tileY: number): PIXI.Container | null {
-    if (!AssetManager.sobjTbl || !AssetManager.tilecTbl || !AssetManager.tilecAtlasMeta || !AssetManager.paletteMeta) {
-        console.warn('SObj metadata not fully loaded.');
-        return null;
-    }
+export function createSObjContainer(sobjIndex: number, x: number, y: number): PIXI.Container | null {
+    if (!AssetManager.sobjTbl) return null;
 
-    if (!AssetManager.paletteTexture) {
-        console.warn('Textures not loaded.');
-        return null;
-    }
-
-    const sobjDef = AssetManager.sobjTbl.objects ? AssetManager.sobjTbl.objects[sobjIndex] : (AssetManager.sobjTbl as any).entries[sobjIndex];
+    const sobjDef = (AssetManager.sobjTbl as any).objects ? (AssetManager.sobjTbl as any).objects[sobjIndex] : AssetManager.sobjTbl.entries[sobjIndex];
     if (!sobjDef || sobjDef.height < 1) {
         return null;
     }
@@ -21,8 +13,8 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
     const container = new PIXI.Container();
     
     // Position the container at the tile coordinates
-    container.x = tileX * 48;
-    container.y = (tileY + 1) * 48;
+    container.x = x * 48;
+    container.y = (y + 1) * 48;
 
     for (let i = 0; i < sobjDef.tile_indices.length; i++) {
         const tilecFrameIndex = sobjDef.tile_indices[i];
@@ -37,7 +29,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         const frameMeta = AssetManager.tilecAtlasMeta.frames[tilecFrameIndex];
         if (!frameMeta) continue;
 
-        const { atlas_id, x, y, width, height, left, top } = frameMeta;
+        const { atlas_id, x: frameX, y: frameY, width, height, left, top } = frameMeta;
 
         // 3. Setup Textures
         const atlasBase = AssetManager.tilecAtlases[atlas_id];
@@ -45,7 +37,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
 
         if (!atlasBase || !maskBase) continue;
 
-        const frameRect = new PIXI.Rectangle(x, y, width, height);
+        const frameRect = new PIXI.Rectangle(frameX, frameY, width, height);
         const indexTexture = new PIXI.Texture(atlasBase, frameRect);
         const maskTexture = new PIXI.Texture(maskBase, frameRect);
         const paletteTexture = new PIXI.Texture(AssetManager.paletteTexture);
@@ -72,6 +64,6 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         container.addChild(sprite);
     }
 
-    container.zIndex = tileY;
+    container.zIndex = y;
     return container;
 }
