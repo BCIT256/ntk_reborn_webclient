@@ -9,6 +9,7 @@ export interface ClientMessages {
   RequestEquipItem: { inventory_slot: number, target_equip_slot: number };
   RequestUnequipItem: { equip_slot: number };
   RequestDropItem: { inventory_slot: number, amount: number };
+  CastSpell: { spell_id: number };
 }
 
 export type ClientToServer = {
@@ -29,11 +30,31 @@ export interface ServerMessages {
   EntityRemove: { entity_id: number, is_death: boolean };
   PlayerPosition: { x: number, y: number, view_x: number, view_y: number };
   EntityHealthUpdate: { entity_id: number, damage: number, hp_percent: number, hit_type: number };
-  PlayerVitalsUpdate: { hp: number, max_hp: number, mp: number, max_mp: number, xp: number, xp_next: number, gold: number, level: number };
+  PlayerVitalsUpdate: {
+    hp: number, max_hp: number, mp: number, max_mp: number,
+    xp: number, xp_next: number, gold: number, level: number,
+    armor_class: number, hit: number, damage_modifier: number,
+    str: number, dex: number, int: number, wis: number
+  };
   ChatNormal: { entity_id: number, message: string };
   SystemMessage: { message: string };
   DialogPopup: { npc_id: number, name: string, message: string };
   ShowMenu: { menu_id: number, title: string, options: string[] };
+  InventoryUpdate: { items: InventoryItem[] };
+  SpellListUpdate: { spells: SpellInfo[] };
+}
+
+export interface InventoryItem {
+  slot: number;
+  name: string;
+  icon_id: number;
+  quantity: number;
+}
+
+export interface SpellInfo {
+  spell_id: number;
+  name: string;
+  icon_id: number;
 }
 
 export type ServerToClient = {

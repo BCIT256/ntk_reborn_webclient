@@ -5,6 +5,7 @@ import MapLoadingScreen from "../components/MapLoadingScreen";
 import SplashScreen from "../components/SplashScreen";
 import TitleScreen from "../components/TitleScreen";
 import InteractionOverlay from "../components/InteractionOverlay";
+import GameSidebar from "../components/GameSidebar";
 import { InteractionProvider } from "../hooks/useInteractionStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +135,30 @@ const Index = () => {
     }
   }, [gameState, spawnPayload]);
 
+  // ── Drag-to-drop: dropping an item on the canvas fires RequestDropItem ─
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const raw = e.dataTransfer.getData("text/plain");
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (typeof data.slot === "number") {
+        socket.send({
+          type: "RequestDropItem",
+          payload: { inventory_slot: data.slot, amount: data.quantity ?? 1 },
+        });
+      }
+    } catch {
+      // Not a valid inventory item drag — ignore
+    }
+  }, []);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password || !isOnline) return;
@@ -158,7 +183,7 @@ const Index = () => {
 
   return (
     <InteractionProvider>
-      <div className="w-full h-screen overflow-hidden bg-black relative">
+      <div className="w-screen h-screen overflow-hidden bg-black flex">
         {/* ── Splash Screen ────────────────────────────────────────── */}
         {gameState === "splash" && (
           <SplashScreen onComplete={() => setGameState("title")} />
@@ -171,7 +196,7 @@ const Index = () => {
 
         {/* ── Login Screen ─────────────────────────────────────────── */}
         {gameState === "unauthenticated" && (
-          <div className="flex flex-col items-center justify-center h-full bg-slate-950">
+          <div className="flex flex-col items-center justify-center h-full w-full bg-slate-950">
             {/* ── Login Background Music ──────────────────────────── */}
             <audio
               ref={loginAudioRef}
@@ -263,12 +288,22 @@ const Index = () => {
           />
         )}
 
-        {/* ── Game Canvas + Interaction Overlay ────────────────────── */}
+        {/* ── Game Layout: Canvas (left) + Sidebar (right) ────────── */}
         {gameState === "playing" && (
-          <div className="relative w-full h-full">
-            <div ref={containerRef} className="w-full h-full" />
-            <InteractionOverlay />
-          </div>
+          <>
+            {/* Left: PixiJS Canvas */}
+            <div
+              className="flex-grow relative"
+              onDragOver={handleCanvasDragOver}
+              onDrop={handleCanvasDrop}
+            >
+              <div ref={containerRef} className="w-full h-full" />
+              <InteractionOverlay />
+            </div>
+
+            {/* Right: Game Sidebar */}
+            <GameSidebar />
+          </>
         )}
       </div>
     </InteractionProvider>

@@ -5,7 +5,6 @@ import { Camera } from "./renderers/camera";
 import { MapRenderer } from "./renderers/mapRenderer";
 import { KeyboardManager } from "./inputs/keyboard";
 import { DOMOverlay } from "./ui/domOverlay";
-import { HUDManager } from "./ui/hudManager";
 import { DamageNumberManager } from "./ui/damageNumberManager";
 import { EntityManager } from "./managers/entityManager";
 import { assetManager } from "./utils/assetManager";
@@ -21,7 +20,6 @@ export class GameApp {
   private mapRenderer: MapRenderer;
   private keyboard: KeyboardManager;
   private ui: DOMOverlay;
-  private hud: HUDManager;
   private damageNumbers: DamageNumberManager;
 
   /** Shared container for all entity sprites (enables Z-sorting by Y). */
@@ -29,7 +27,7 @@ export class GameApp {
 
   constructor(canvasContainer: HTMLElement, initialSpawnData: any = null) {
     this.app = new PIXI.Application({
-      resizeTo: window,
+      resizeTo: canvasContainer,
       backgroundColor: 0x1099bb,
       antialias: true,
     });
@@ -62,7 +60,6 @@ export class GameApp {
     this.damageNumbers = new DamageNumberManager(this.camera.container);
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
-    this.hud = new HUDManager();
 
     this.init(initialSpawnData);
   }
@@ -147,11 +144,6 @@ export class GameApp {
       }
     });
 
-    // ─── HUD ───────────────────────────────────────────────────────
-    eventBus.on("PlayerVitalsUpdate", (data) => {
-      this.hud.handleVitalsUpdate(data);
-    });
-
     // ─── Chat / System ──────────────────────────────────────────────
     eventBus.on("SystemMessage", (data) => {
       this.ui.addMessage(data.message);
@@ -193,6 +185,12 @@ export class GameApp {
         case "SystemMessage":
           eventBus.emit("SystemMessage", packet.payload);
           break;
+        case "InventoryUpdate":
+          eventBus.emit("InventoryUpdate", packet.payload);
+          break;
+        case "SpellListUpdate":
+          eventBus.emit("SpellListUpdate", packet.payload);
+          break;
       }
     });
 
@@ -229,7 +227,6 @@ export class GameApp {
     eventBus.clear();
     this.entityManager.clearAll();
     this.damageNumbers.destroy();
-    this.hud.destroy();
     this.app.destroy(true);
   }
 }

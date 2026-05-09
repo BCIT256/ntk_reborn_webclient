@@ -54,6 +54,13 @@ export interface GameEvents {
     xp_next: number;
     gold: number;
     level: number;
+    armor_class: number;
+    hit: number;
+    damage_modifier: number;
+    str: number;
+    dex: number;
+    int: number;
+    wis: number;
   };
 
   // ─── Dialog / Menu ────────────────────────────────────────────────
@@ -66,6 +73,16 @@ export interface GameEvents {
   // ─── UI Lock (keyboard) ───────────────────────────────────────────
   DialogOpened: void;
   DialogClosed: void;
+
+  // ─── Inventory ─────────────────────────────────────────────────────
+  InventoryUpdate: {
+    items: { slot: number; name: string; icon_id: number; quantity: number }[];
+  };
+
+  // ─── Spells ────────────────────────────────────────────────────────
+  SpellListUpdate: {
+    spells: { spell_id: number; name: string; icon_id: number }[];
+  };
 }
 
 class EventBusClass {
