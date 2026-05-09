@@ -13,7 +13,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         return null;
     }
 
-    const sobjDef = AssetManager.sobjTbl.entries[sobjIndex];
+    const sobjDef = AssetManager.sobjTbl.objects ? AssetManager.sobjTbl.objects[sobjIndex] : (AssetManager.sobjTbl as any).entries[sobjIndex];
     if (!sobjDef || sobjDef.height < 1) {
         return null;
     }
@@ -31,7 +31,7 @@ export function createSObjContainer(sobjIndex: number, tileX: number, tileY: num
         if (tilecFrameIndex <= 0) continue;
 
         // 1. Get TBL palette index
-        const paletteIndex = AssetManager.tilecTbl.entries[tilecFrameIndex] || 0;
+        const paletteIndex = AssetManager.tilecTbl.entries ? AssetManager.tilecTbl.entries[tilecFrameIndex] : (AssetManager.tilecTbl as any)[tilecFrameIndex] || 0;
 
         // 2. Get Frame Meta
         const frameMeta = AssetManager.tilecAtlasMeta.frames[tilecFrameIndex];

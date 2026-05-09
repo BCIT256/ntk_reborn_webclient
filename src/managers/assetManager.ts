@@ -10,6 +10,7 @@ class AssetManagerSingleton {
     public tilecTbl: TblData | null = null;
     public tilecAtlasMeta: AtlasMeta | null = null;
     public currentMap: MapData | null = null;
+    public mapManifest: any = null;
 
     public atlases: PIXI.BaseTexture[] = [];
     public masks: PIXI.BaseTexture[] = [];
@@ -21,13 +22,14 @@ class AssetManagerSingleton {
 
     public async fetchAssets() {
         try {
-            const [atlasRes, tblRes, palRes, sobjTblRes, tilecTblRes, tilecAtlasRes] = await Promise.all([
+            const [atlasRes, tblRes, palRes, sobjTblRes, tilecTblRes, tilecAtlasRes, manifestRes] = await Promise.all([
                 fetch('/assets/tiles/tile_atlas.json'),
                 fetch('/assets/tables/tile_tbl.json'),
                 fetch('/assets/palettes/palette_meta.json'),
                 fetch('/assets/tables/sobj_tbl.json'),
                 fetch('/assets/tables/tilec_tbl.json'),
-                fetch('/assets/tiles/tilec_atlas.json')
+                fetch('/assets/tiles/tilec_atlas.json'),
+                fetch('http://localhost:2011/assets/maps/manifest.json')
             ]);
 
             this.atlasMeta = await atlasRes.json();
@@ -37,6 +39,7 @@ class AssetManagerSingleton {
             this.sobjTbl = await sobjTblRes.json();
             this.tilecTbl = await tilecTblRes.json();
             this.tilecAtlasMeta = await tilecAtlasRes.json();
+            this.mapManifest = await manifestRes.json();
         } catch (error) {
             console.error("Failed to load JSON metadata:", error);
         }
@@ -45,7 +48,7 @@ class AssetManagerSingleton {
     public async loadMap(mapId: number): Promise<void> {
         try {
             const paddedMapId = mapId.toString().padStart(4, '0');
-            const mapRes = await fetch(`/assets/maps/tk${paddedMapId}.json`);
+            const mapRes = await fetch(`http://localhost:2011/assets/maps/tk${paddedMapId}.json`);
             this.currentMap = await mapRes.json();
         } catch (error) {
             console.error(`Failed to load map ${mapId}:`, error);

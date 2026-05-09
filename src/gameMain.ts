@@ -40,20 +40,31 @@ export class GameApp {
         }
 
         if (this.mapRenderer) {
-            this.app.stage.removeChild(this.mapRenderer.groundContainer);
-            this.app.stage.removeChild(this.mapRenderer.objectContainer);
-            this.mapRenderer.destroy(); // Assumes destroy() method exists in ChunkedMapRenderer
+            this.mapRenderer.groundContainer.destroy({ children: true });
+            this.mapRenderer.objectContainer.destroy({ children: true });
+            this.mapRenderer.destroy();
         }
 
         this.mapRenderer = new ChunkedMapRenderer(AssetManager.currentMap);
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
 
-        // Set camera position (assuming we update the visible chunks based on this)
-        // Hardcoded viewport centered for PoC (viewport dimension based on chunk logic, for now simple offset)
+        // Center the camera on the provided x and y
+        const TILE_SIZE = 48;
+        this.app.stage.pivot.x = x * TILE_SIZE;
+        this.app.stage.pivot.y = y * TILE_SIZE;
+        this.app.stage.position.x = this.app.screen.width / 2;
+        this.app.stage.position.y = this.app.screen.height / 2;
+
         const cameraTileX = x;
         const cameraTileY = y;
-        this.mapRenderer.updateVisibleChunks(cameraTileX - 15, cameraTileY - 10, cameraTileX + 15, cameraTileY + 10);
+        // View bounds in tile coordinates
+        const viewMinX = cameraTileX - (this.app.screen.width / 2) / TILE_SIZE;
+        const viewMinY = cameraTileY - (this.app.screen.height / 2) / TILE_SIZE;
+        const viewMaxX = cameraTileX + (this.app.screen.width / 2) / TILE_SIZE;
+        const viewMaxY = cameraTileY + (this.app.screen.height / 2) / TILE_SIZE;
+        
+        this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
     }
 
     private async init(spawnPayload: any) {
@@ -88,7 +99,14 @@ export class GameApp {
             if (this.mapRenderer) {
                 // Hardcoded static viewport for PoC (0,0 to 30,20 tiles)
                 // In a real app this would follow the player
-                this.mapRenderer.updateVisibleChunks(0, 0, 30, 20);
+                // We've centered the camera dynamically in handleMapChange or we should do it here if tracking player
+                // But for now, just static visible chunks update based on current pivot:
+                const viewMinX = (this.app.stage.pivot.x - this.app.screen.width / 2) / 48;
+                const viewMinY = (this.app.stage.pivot.y - this.app.screen.height / 2) / 48;
+                const viewMaxX = (this.app.stage.pivot.x + this.app.screen.width / 2) / 48;
+                const viewMaxY = (this.app.stage.pivot.y + this.app.screen.height / 2) / 48;
+                
+                this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
                 
                 // Animation loop
                 this.lastAnimTime += this.app.ticker.deltaMS;
