@@ -48,9 +48,9 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     sprite.y = (tileY * 48) + top;
 
     // 5. Setup Palette Filter
-    const paletteInfo = AssetManager.paletteMeta.tile_palettes.find(p => p.index === paletteIndex);
+    const paletteInfo = AssetManager.paletteMeta.tile_palettes.palettes.find((p: any) => p.index === paletteIndex);
     const animRanges: [number, number][] = paletteInfo 
-        ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
+        ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
         : [];
 
     // Assuming the palette texture is a single column of palettes, where paletteIndex maps to row

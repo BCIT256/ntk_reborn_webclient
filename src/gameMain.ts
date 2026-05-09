@@ -30,6 +30,26 @@ export class GameApp {
         this.unsubscribeMapChange = eventBus.on("MapChange", this.handleMapChange.bind(this));
     }
 
+    public centerCamera(x: number, y: number) {
+        const TILE_SIZE = 48;
+        this.app.stage.pivot.x = x * TILE_SIZE;
+        this.app.stage.pivot.y = y * TILE_SIZE;
+        this.app.stage.position.x = this.app.screen.width / 2;
+        this.app.stage.position.y = this.app.screen.height / 2;
+
+        const cameraTileX = x;
+        const cameraTileY = y;
+        // View bounds in tile coordinates
+        const viewMinX = cameraTileX - (this.app.screen.width / 2) / TILE_SIZE;
+        const viewMinY = cameraTileY - (this.app.screen.height / 2) / TILE_SIZE;
+        const viewMaxX = cameraTileX + (this.app.screen.width / 2) / TILE_SIZE;
+        const viewMaxY = cameraTileY + (this.app.screen.height / 2) / TILE_SIZE;
+        
+        if (this.mapRenderer) {
+            this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
+        }
+    }
+
     private async handleMapChange(payload: any) {
         const { map_id, x, y } = payload;
         await AssetManager.loadMap(map_id);
@@ -50,21 +70,7 @@ export class GameApp {
         this.app.stage.addChild(this.mapRenderer.objectContainer);
 
         // Center the camera on the provided x and y
-        const TILE_SIZE = 48;
-        this.app.stage.pivot.x = x * TILE_SIZE;
-        this.app.stage.pivot.y = y * TILE_SIZE;
-        this.app.stage.position.x = this.app.screen.width / 2;
-        this.app.stage.position.y = this.app.screen.height / 2;
-
-        const cameraTileX = x;
-        const cameraTileY = y;
-        // View bounds in tile coordinates
-        const viewMinX = cameraTileX - (this.app.screen.width / 2) / TILE_SIZE;
-        const viewMinY = cameraTileY - (this.app.screen.height / 2) / TILE_SIZE;
-        const viewMaxX = cameraTileX + (this.app.screen.width / 2) / TILE_SIZE;
-        const viewMaxY = cameraTileY + (this.app.screen.height / 2) / TILE_SIZE;
-        
-        this.mapRenderer.updateVisibleChunks(viewMinX, viewMinY, viewMaxX, viewMaxY);
+        this.centerCamera(x, y);
     }
 
     private async init(spawnPayload: any) {
@@ -93,6 +99,12 @@ export class GameApp {
         // 4. Add the layered containers to the Pixi stage
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
+
+        if (spawnPayload && spawnPayload.x !== undefined && spawnPayload.y !== undefined) {
+            this.centerCamera(spawnPayload.x, spawnPayload.y);
+        } else {
+            this.centerCamera(0, 0);
+        }
 
         // 5. Add a Ticker loop to process chunks and animations
         this.app.ticker.add((delta) => {

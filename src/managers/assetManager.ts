@@ -110,12 +110,12 @@ class AssetManagerSingleton {
         // Load index atlases and mask atlases
         for (let i = 0; i < this.atlasMeta.atlas_count; i++) {
             loadPromises.push(
-                loadTexture(`http://localhost:2011/assets/tiles/atlas_${i}.png`).then(tex => {
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_tile_${i}.png`).then(tex => {
                     this.atlases[i] = tex;
                 })
             );
             loadPromises.push(
-                loadTexture(`http://localhost:2011/assets/tiles/atlas_${i}_mask.png`).then(tex => {
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_tile_${i}_mask.png`).then(tex => {
                     this.masks[i] = tex;
                 })
             );
