@@ -14,7 +14,7 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
     
     // Position the container at the tile coordinates
     container.x = x * 48;
-    container.y = (y + 1) * 48;
+    container.y = y * 48;
 
     for (let i = 0; i < sobjDef.tile_indices.length; i++) {
         const tilecFrameIndex = sobjDef.tile_indices[i];
@@ -45,9 +45,9 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         // 4. Create Sprite
         const sprite = new PIXI.Sprite(indexTexture);
         
-        // Stack the SObj parts: each part goes up by 48 pixels relative to the container
+        // Stack the SObj parts using their left/top offsets
         sprite.x = left;
-        sprite.y = -(i + 1) * 48 + top + 48;
+        sprite.y = top;
 
         // 5. Setup Palette Filter
         let tilePaletteCount = 0;
@@ -55,19 +55,13 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         let combinedIndex = paletteIndex;
         
         const meta = AssetManager.paletteMeta as any;
-        if (Array.isArray(meta)) {
-            paletteInfo = meta.find(p => p.index === paletteIndex);
-        } else if (meta.tile_palettes) {
-            let palettesArray: any[] = [];
-            if (Array.isArray(meta.tile_palettes)) {
-                palettesArray = meta.tile_palettes;
-            } else {
-                palettesArray = Object.values(meta.tile_palettes);
-            }
-            
+        if (meta && meta.tile_palettes) {
+            let palettesArray: any[] = Array.isArray(meta.tile_palettes) ? meta.tile_palettes : Object.values(meta.tile_palettes);
             tilePaletteCount = palettesArray.length;
             combinedIndex = paletteIndex + tilePaletteCount;
-            paletteInfo = palettesArray.find(p => p.index === combinedIndex);
+
+            let tilecPalettesArray: any[] = Array.isArray(meta.tilec_palettes) ? meta.tilec_palettes : (meta.tilec_palettes ? Object.values(meta.tilec_palettes) : []);
+            paletteInfo = tilecPalettesArray.find(p => p.index === paletteIndex);
         }
 
         const animRanges: [number, number][] = paletteInfo && paletteInfo.animation_ranges
