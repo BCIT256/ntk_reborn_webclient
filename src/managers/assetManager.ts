@@ -23,12 +23,12 @@ class AssetManagerSingleton {
     public async fetchAssets() {
         try {
             const [atlasRes, tblRes, palRes, sobjTblRes, tilecTblRes, tilecAtlasRes, manifestRes] = await Promise.all([
-                fetch('/assets/tiles/tile_atlas.json'),
-                fetch('/assets/tables/tile_tbl.json'),
-                fetch('/assets/palettes/palette_meta.json'),
-                fetch('/assets/tables/sobj_tbl.json'),
-                fetch('/assets/tables/tilec_tbl.json'),
-                fetch('/assets/tiles/tilec_atlas.json'),
+                fetch('http://localhost:2011/assets/tiles/tile_atlas.json'),
+                fetch('http://localhost:2011/assets/tables/tile_tbl.json'),
+                fetch('http://localhost:2011/assets/palettes/palette_meta.json'),
+                fetch('http://localhost:2011/assets/tables/sobj_tbl.json'),
+                fetch('http://localhost:2011/assets/tables/tilec_tbl.json'),
+                fetch('http://localhost:2011/assets/tiles/tilec_atlas.json'),
                 fetch('http://localhost:2011/assets/maps/manifest.json')
             ]);
 
@@ -68,16 +68,16 @@ class AssetManagerSingleton {
         const loadPromises: Promise<any>[] = [];
 
         // Load the master palette texture
-        this.paletteTexture = PIXI.BaseTexture.from('/assets/palettes/tile_palettes.png', {
+        this.paletteTexture = PIXI.BaseTexture.from('http://localhost:2011/assets/palettes/tile_palettes.png', {
             scaleMode: PIXI.SCALE_MODES.NEAREST
         });
         
         // Load index atlases and mask atlases
         for (let i = 0; i < this.atlasMeta.atlas_count; i++) {
-            const atlasTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_${i}.png`, {
+            const atlasTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_${i}.png`, {
                 scaleMode: PIXI.SCALE_MODES.NEAREST
             });
-            const maskTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_${i}_mask.png`, {
+            const maskTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_${i}_mask.png`, {
                 scaleMode: PIXI.SCALE_MODES.NEAREST
             });
 
@@ -87,10 +87,10 @@ class AssetManagerSingleton {
 
         // Load TileC index atlases and mask atlases
         for (let i = 0; i < this.tilecAtlasMeta.atlas_count; i++) {
-            const atlasTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_tilec_${i}.png`, {
+            const atlasTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_tilec_${i}.png`, {
                 scaleMode: PIXI.SCALE_MODES.NEAREST
             });
-            const maskTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_tilec_${i}_mask.png`, {
+            const maskTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_tilec_${i}_mask.png`, {
                 scaleMode: PIXI.SCALE_MODES.NEAREST
             });
 
