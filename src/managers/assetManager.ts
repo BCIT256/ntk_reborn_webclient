@@ -67,39 +67,59 @@ class AssetManagerSingleton {
 
         const loadPromises: Promise<any>[] = [];
 
+        const loadTexture = async (url: string) => {
+            try {
+                // Fetch the image as a blob to avoid raw Image crossOrigin issues
+                const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch texture: ${res.statusText}`);
+                }
+                const blob = await res.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const tex = await PIXI.Assets.load(objectUrl);
+                return tex.baseTexture;
+            } catch (err) {
+                console.error("Failed to load texture", url, err);
+                throw err;
+            }
+        };
+
         // Load the master palette texture
-        this.paletteTexture = PIXI.BaseTexture.from('http://localhost:2011/assets/palettes/tile_palettes.png', {
-            scaleMode: PIXI.SCALE_MODES.NEAREST
-        });
+        loadPromises.push(
+            loadTexture('http://localhost:2011/assets/palettes/tile_palettes.png').then(tex => {
+                this.paletteTexture = tex;
+            })
+        );
         
         // Load index atlases and mask atlases
         for (let i = 0; i < this.atlasMeta.atlas_count; i++) {
-            const atlasTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_${i}.png`, {
-                scaleMode: PIXI.SCALE_MODES.NEAREST
-            });
-            const maskTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_${i}_mask.png`, {
-                scaleMode: PIXI.SCALE_MODES.NEAREST
-            });
-
-            this.atlases.push(atlasTex);
-            this.masks.push(maskTex);
+            loadPromises.push(
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_${i}.png`).then(tex => {
+                    this.atlases[i] = tex;
+                })
+            );
+            loadPromises.push(
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_${i}_mask.png`).then(tex => {
+                    this.masks[i] = tex;
+                })
+            );
         }
 
         // Load TileC index atlases and mask atlases
         for (let i = 0; i < this.tilecAtlasMeta.atlas_count; i++) {
-            const atlasTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_tilec_${i}.png`, {
-                scaleMode: PIXI.SCALE_MODES.NEAREST
-            });
-            const maskTex = PIXI.BaseTexture.from(`http://localhost:2011/assets/tiles/atlas_tilec_${i}_mask.png`, {
-                scaleMode: PIXI.SCALE_MODES.NEAREST
-            });
-
-            this.tilecAtlases.push(atlasTex);
-            this.tilecMasks.push(maskTex);
+            loadPromises.push(
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_tilec_${i}.png`).then(tex => {
+                    this.tilecAtlases[i] = tex;
+                })
+            );
+            loadPromises.push(
+                loadTexture(`http://localhost:2011/assets/tiles/atlas_tilec_${i}_mask.png`).then(tex => {
+                    this.tilecMasks[i] = tex;
+                })
+            );
         }
 
-        // We can optionally wait for them to load via PIXI.Assets or similar, 
-        // but BaseTexture.from is generally synchronous in returning the object, loading image async.
+        await Promise.all(loadPromises);
     }
 }
 
