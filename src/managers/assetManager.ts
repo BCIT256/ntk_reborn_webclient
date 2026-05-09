@@ -1,33 +1,51 @@
 import * as PIXI from 'pixi.js';
-import { AtlasMeta, PaletteMetaFile, TblData } from '../assets/types';
+import { AtlasMeta, PaletteMetaFile, TblData, SObjTblData, MapData } from '../assets/types';
 
 class AssetManagerSingleton {
     public atlasMeta: AtlasMeta | null = null;
     public tblData: TblData | null = null;
     public paletteMeta: PaletteMetaFile | null = null;
+    
+    public sobjTbl: SObjTblData | null = null;
+    public tilecTbl: TblData | null = null;
+    public tilecAtlasMeta: AtlasMeta | null = null;
+    public currentMap: MapData | null = null;
 
     public atlases: PIXI.BaseTexture[] = [];
     public masks: PIXI.BaseTexture[] = [];
+    
+    public tilecAtlases: PIXI.BaseTexture[] = [];
+    public tilecMasks: PIXI.BaseTexture[] = [];
+    
     public paletteTexture: PIXI.BaseTexture | null = null;
 
     public async fetchAssets() {
         try {
-            const [atlasRes, tblRes, palRes] = await Promise.all([
+            const [atlasRes, tblRes, palRes, sobjTblRes, tilecTblRes, tilecAtlasRes, mapRes] = await Promise.all([
                 fetch('/assets/tiles/tile_atlas.json'),
                 fetch('/assets/tables/tile_tbl.json'),
-                fetch('/assets/palettes/palette_meta.json')
+                fetch('/assets/palettes/palette_meta.json'),
+                fetch('/assets/tables/sobj_tbl.json'),
+                fetch('/assets/tables/tilec_tbl.json'),
+                fetch('/assets/tiles/tilec_atlas.json'),
+                fetch('/assets/maps/tk0001.json')
             ]);
 
             this.atlasMeta = await atlasRes.json();
             this.tblData = await tblRes.json();
             this.paletteMeta = await palRes.json();
+            
+            this.sobjTbl = await sobjTblRes.json();
+            this.tilecTbl = await tilecTblRes.json();
+            this.tilecAtlasMeta = await tilecAtlasRes.json();
+            this.currentMap = await mapRes.json();
         } catch (error) {
             console.error("Failed to load JSON metadata:", error);
         }
     }
 
     public async loadTextures() {
-        if (!this.atlasMeta) {
+        if (!this.atlasMeta || !this.tilecAtlasMeta) {
             console.error("Cannot load textures: Atlas metadata not loaded.");
             return;
         }
@@ -53,6 +71,19 @@ class AssetManagerSingleton {
 
             this.atlases.push(atlasTex);
             this.masks.push(maskTex);
+        }
+
+        // Load TileC index atlases and mask atlases
+        for (let i = 0; i < this.tilecAtlasMeta.atlas_count; i++) {
+            const atlasTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_tilec_${i}.png`, {
+                scaleMode: PIXI.SCALE_MODES.NEAREST
+            });
+            const maskTex = PIXI.BaseTexture.from(`/assets/tiles/atlas_tilec_${i}_mask.png`, {
+                scaleMode: PIXI.SCALE_MODES.NEAREST
+            });
+
+            this.tilecAtlases.push(atlasTex);
+            this.tilecMasks.push(maskTex);
         }
 
         // We can optionally wait for them to load via PIXI.Assets or similar, 

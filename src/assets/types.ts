@@ -35,3 +35,28 @@ export interface TblData {
     tile_count: number;
     entries: number[];
 }
+
+export interface SObjDef {
+    index: number;
+    collision: number;
+    height: number;
+    tile_indices: number[];
+}
+
+export interface SObjTblData {
+    sobj_count: number;
+    entries: SObjDef[];
+}
+
+export interface MapTile {
+    ab: number;
+    pass: number;
+    sobj: number;
+}
+
+export interface MapData {
+    map_id: number;
+    width: number;
+    height: number;
+    tiles: MapTile[];
+}

@@ -1,142 +1,115 @@
-import * as PIXI from "pixi.js";
-import { assetManager } from "../utils/assetManager";
+import * as PIXI from 'pixi.js';
+import { MapData } from '../assets/types';
+import { createTileSprite } from './tileFactory';
+import { createSObjContainer } from './sobjFactory';
 
-const TILE_SIZE = 32;
-const MAX_TILES = 10000;
+const CHUNK_SIZE = 16;
+const TILE_SIZE = 48;
 
-export class MapRenderer {
-  private container: PIXI.Container;
-  private particleContainer: PIXI.ParticleContainer;
-  private fallbackContainer: PIXI.Container;
-  private currentMapId: string | null = null;
+interface ChunkCache {
+    ground: PIXI.Sprite[];
+    objects: PIXI.Container[];
+}
 
-  constructor(container: PIXI.Container) {
-    this.container = new PIXI.Container();
-    container.addChild(this.container);
+export class ChunkedMapRenderer {
+    public groundContainer: PIXI.Container;
+    public objectContainer: PIXI.Container;
+    private mapData: MapData;
+    private loadedChunks: Map<string, ChunkCache> = new Map();
 
-    // ParticleContainer for atlas-textured tiles (same base texture → batched draw calls).
-    // uvs must be true so each sprite can show a different atlas frame.
-    this.particleContainer = new PIXI.ParticleContainer(MAX_TILES, {
-      position: true,
-      scale: false,
-      rotation: false,
-      uvs: true,
-      tint: true,
-    });
-
-    // Regular container for fallback coloured rectangles when atlas textures are missing.
-    this.fallbackContainer = new PIXI.Container();
-
-    this.container.addChild(this.particleContainer);
-    this.container.addChild(this.fallbackContainer);
-  }
-
-  init() {
-    console.log("Map renderer initialized (ParticleContainer + Sprite atlas mode)");
-  }
-
-  /**
-   * Destroy all map sprites and graphics to prevent memory leaks.
-   *
-   * IMPORTANT: We must recursively destroy all children, not just remove them.
-   * Simply calling removeChildren() or setting visible=false will leak GPU
-   * textures and crash the browser after several map transitions.
-   */
-  destroy() {
-    // ParticleContainer children: destroy each sprite individually
-    // (ParticleContainer doesn't support destroy with children:true)
-    while (this.particleContainer.children.length > 0) {
-      const child = this.particleContainer.children[0] as PIXI.Sprite;
-      this.particleContainer.removeChild(child);
-      child.destroy();
+    constructor(mapData: MapData) {
+        this.mapData = mapData;
+        
+        this.groundContainer = new PIXI.Container();
+        
+        this.objectContainer = new PIXI.Container();
+        this.objectContainer.sortableChildren = true; // Essential for Y-sorting
     }
 
-    // Fallback Graphics: destroy with children to clean up all Graphics objects
-    this.fallbackContainer.destroy({ children: true });
+    public updateVisibleChunks(viewMinX: number, viewMinY: number, viewMaxX: number, viewMaxY: number) {
+        // Calculate the chunk bounds with a 1-chunk margin
+        const startCX = Math.floor(viewMinX / CHUNK_SIZE) - 1;
+        const startCY = Math.floor(viewMinY / CHUNK_SIZE) - 1;
+        const endCX = Math.ceil(viewMaxX / CHUNK_SIZE) + 1;
+        const endCY = Math.ceil(viewMaxY / CHUNK_SIZE) + 1;
 
-    // Recreate the fallback container since we destroyed it
-    this.fallbackContainer = new PIXI.Container();
-    this.container.addChild(this.fallbackContainer);
+        const currentVisibleKeys = new Set<string>();
 
-    this.currentMapId = null;
+        // Create new chunks that came into view
+        for (let cy = startCY; cy <= endCY; cy++) {
+            for (let cx = startCX; cx <= endCX; cx++) {
+                if (cx < 0 || cy < 0 || cx * CHUNK_SIZE >= this.mapData.width || cy * CHUNK_SIZE >= this.mapData.height) {
+                    continue; // Chunk is out of map bounds
+                }
 
-    console.log("MapRenderer: old map destroyed and memory freed.");
-  }
+                const key = `${cx},${cy}`;
+                currentVisibleKeys.add(key);
 
-  async loadMap(mapId: number | string) {
-    const mapIdStr = String(mapId);
-    if (this.currentMapId === mapIdStr) return;
-
-    console.log(`Loading map ${mapIdStr} from local cache...`);
-    let mapData;
-
-    try {
-      mapData = await assetManager.getMap(mapIdStr);
-      console.log(`Map data loaded for Map ${mapIdStr}`);
-    } catch (error) {
-      console.warn(`Failed to find map ${mapIdStr} in cache:`, error);
-      mapData = this.getMockMap(mapIdStr);
-    }
-
-    this.currentMapId = mapIdStr;
-    this.renderMap(mapData);
-  }
-
-  private getMockMap(mapId: string) {
-    return {
-      id: mapId,
-      width: 20,
-      height: 20,
-      tiles: Array(400).fill(1),
-      collision: Array(400).fill(0),
-    };
-  }
-
-  private renderMap(mapData: any) {
-    this.particleContainer.removeChildren();
-    this.fallbackContainer.removeChildren();
-
-    const tiles = mapData.tiles || [];
-    const collisionData = mapData.collision || mapData.pass || [];
-    const hasTileset = assetManager.hasSpritesheet("tileset");
-
-    for (let y = 0; y < mapData.height; y++) {
-      for (let x = 0; x < mapData.width; x++) {
-        const index = x + y * mapData.width;
-        const tileId = tiles[index] ?? 1;
-        const isBlocked = collisionData[index] !== 0;
-        const px = x * TILE_SIZE;
-        const py = y * TILE_SIZE;
-
-        if (hasTileset) {
-          const texture = assetManager.getTileTexture(tileId);
-          if (texture) {
-            const sprite = new PIXI.Sprite(texture);
-            sprite.x = px;
-            sprite.y = py;
-            this.particleContainer.addChild(sprite);
-            continue;
-          }
+                if (!this.loadedChunks.has(key)) {
+                    this.buildChunk(cx, cy, key);
+                }
+            }
         }
 
-        // No atlas texture available — draw a coloured rectangle fallback
-        this.addFallbackTile(px, py, isBlocked);
-      }
+        // Cull chunks that left the view
+        for (const [key, chunk] of this.loadedChunks.entries()) {
+            if (!currentVisibleKeys.has(key)) {
+                this.cullChunk(key, chunk);
+            }
+        }
     }
 
-    console.log(
-      `Rendered ${mapData.width}x${mapData.height} map (ID: ${mapData.id}) ` +
-        `[Atlas: ${this.particleContainer.children.length}, Fallback: ${this.fallbackContainer.children.length}]`
-    );
-  }
+    private buildChunk(cx: number, cy: number, key: string) {
+        const chunkCache: ChunkCache = { ground: [], objects: [] };
 
-  private addFallbackTile(x: number, y: number, isBlocked: boolean) {
-    const g = new PIXI.Graphics();
-    const color = isBlocked ? 0x882222 : 0x228822;
-    g.beginFill(color);
-    g.lineStyle(1, 0x000000, 0.1);
-    g.drawRect(x, y, TILE_SIZE, TILE_SIZE);
-    g.endFill();
-    this.fallbackContainer.addChild(g);
-  }
+        const startX = cx * CHUNK_SIZE;
+        const startY = cy * CHUNK_SIZE;
+        
+        const endX = Math.min(startX + CHUNK_SIZE, this.mapData.width);
+        const endY = Math.min(startY + CHUNK_SIZE, this.mapData.height);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const index = y * this.mapData.width + x;
+                const tile = this.mapData.tiles[index];
+                
+                if (!tile) continue;
+
+                if (tile.ab > 0) {
+                    const groundSprite = createTileSprite(tile.ab, x, y);
+                    if (groundSprite) {
+                        this.groundContainer.addChild(groundSprite);
+                        chunkCache.ground.push(groundSprite);
+                    }
+                }
+
+                if (tile.sobj >= 0) {
+                    const objContainer = createSObjContainer(tile.sobj, x, y);
+                    if (objContainer) {
+                        // Strict Y-sorting constraint: zIndex MUST map to tileY
+                        objContainer.zIndex = y; 
+                        this.objectContainer.addChild(objContainer);
+                        chunkCache.objects.push(objContainer);
+                    }
+                }
+            }
+        }
+
+        this.loadedChunks.set(key, chunkCache);
+    }
+
+    private cullChunk(key: string, chunk: ChunkCache) {
+        // Memory Leak Prevention: Destroying sprites and containers properly
+        for (const sprite of chunk.ground) {
+            this.groundContainer.removeChild(sprite);
+            sprite.destroy({ children: true });
+        }
+        
+        for (const container of chunk.objects) {
+            this.objectContainer.removeChild(container);
+            container.destroy({ children: true });
+        }
+        
+        this.loadedChunks.delete(key);
+    }
 }
