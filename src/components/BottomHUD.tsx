@@ -42,13 +42,27 @@ const BottomHUD = () => {
       const entityId = Number(data.entity_id);
       const localId = Number(socket.localEntityId);
       const isLocal = entityId === localId;
-      const name = isLocal ? "You" : entityNameCache.get(entityId) || entityId.toString();
+      
+      let name = data.name;
+      if (!name) {
+         name = entityNameCache.get(entityId) || entityId.toString();
+      }
+      if (isLocal) {
+         name = "You";
+      }
+
       const prefix = `[${name}]`;
       addMessage(`${prefix} ${data.message}`, "chat");
     });
     // Listen for FocusChatInput event to programmatically focus the input
     const unsubFocus = eventBus.on("FocusChatInput", () => {
-      inputRef.current?.focus();
+      // Small timeout ensures the keydown event that triggered this
+      // doesn't immediately get typed into the input
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 10);
     });
 
     return () => {

@@ -36,7 +36,7 @@ export interface ServerMessages {
     armor_class: number, hit: number, damage_modifier: number,
     str: number, dex: number, int: number, wis: number
   };
-  ChatNormal: { entity_id: number, message: string };
+  ChatNormal: { entity_id: number, name: string, message: string };
   SystemMessage: { message: string };
   DialogPopup: { npc_id: number, name: string, message: string };
   ShowMenu: { menu_id: number, title: string, options: string[] };

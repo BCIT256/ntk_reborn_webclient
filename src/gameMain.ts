@@ -206,10 +206,11 @@ export class GameApp {
     // ─── Speech Bubbles: route ChatNormal to entity renderers ───────
     this.eventUnsubs.push(
       eventBus.on("ChatNormal", (data) => {
-        if (Number(data.entity_id) === Number(socket.localEntityId)) {
+        const entityId = Number(data.entity_id);
+        if (entityId === Number(socket.localEntityId)) {
           this.localPlayer.showSpeechBubble(data.message);
         } else {
-          this.entityManager.showSpeechBubble(Number(data.entity_id), data.message);
+          this.entityManager.showSpeechBubble(entityId, data.message);
         }
       })
     );

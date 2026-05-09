@@ -112,7 +112,7 @@ class GameSocket {
         if (packet.payload.objects) {
           packet.payload.objects.forEach((obj: any) => {
             if (obj.entity_id && obj.name) {
-              entityNameCache.set(obj.entity_id, obj.name);
+              entityNameCache.set(Number(obj.entity_id), obj.name);
             }
           });
         }
@@ -123,7 +123,7 @@ class GameSocket {
         eventBus.emit("PlayerPosition", packet.payload);
         break;
       case "SpawnCharacter":
-        entityNameCache.set(packet.payload.entity_id, packet.payload.name);
+        entityNameCache.set(Number(packet.payload.entity_id), packet.payload.name);
         eventBus.emit("SpawnCharacter", packet.payload);
         break;
       case "EntityMove":
@@ -148,7 +148,7 @@ class GameSocket {
         eventBus.emit("SystemMessage", packet.payload);
         break;
       case "ChatNormal":
-        eventBus.emit("ChatNormal", packet.payload);
+        eventBus.emit("ChatNormal", { ...packet.payload, entity_id: Number(packet.payload.entity_id) });
         break;
       case "InventoryUpdate":
         eventBus.emit("InventoryUpdate", packet.payload);
@@ -195,7 +195,7 @@ class GameSocket {
           eventBus.emit("EntityRemove", packet.payload);
           break;
         case "ChatNormal":
-          eventBus.emit("ChatNormal", packet.payload);
+          eventBus.emit("ChatNormal", { ...packet.payload, entity_id: Number(packet.payload.entity_id) });
           break;
       }
     }

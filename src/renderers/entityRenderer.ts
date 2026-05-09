@@ -232,8 +232,8 @@ export class EntityRenderer {
 
     // Measure text dimensions
     const style = new PIXI.TextStyle({
-      fontFamily: "Arial, sans-serif",
-      fontSize: SPEECH_BUBBLE_FONT_SIZE,
+      fontFamily: "sans-serif",
+      fontSize: 12,
       fill: "#ffffff",
       wordWrap: false,
     });
@@ -274,8 +274,8 @@ export class EntityRenderer {
 
     // Add the text
     const bubbleText = new PIXI.Text(displayText, {
-      fontFamily: "Arial, sans-serif",
-      fontSize: SPEECH_BUBBLE_FONT_SIZE,
+      fontFamily: "sans-serif",
+      fontSize: 12,
       fill: "#ffffff",
     } as PIXI.TextStyle);
     bubbleText.x = SPEECH_BUBBLE_PADDING;

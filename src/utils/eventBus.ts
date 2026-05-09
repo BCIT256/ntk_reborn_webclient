@@ -70,7 +70,7 @@ export interface GameEvents {
   // ─── Chat / System ─────────────────────────────────────────────────
   SystemMessage: { message: string };
   BroadcastMessage: { message: string };
-  ChatNormal: { entity_id: number; message: string };
+  ChatNormal: { entity_id: number; name: string; message: string };
 
   // ─── UI Lock (keyboard / dialog) ───────────────────────────────────
   DialogOpened: void;
