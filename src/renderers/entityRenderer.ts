@@ -212,6 +212,11 @@ export class EntityRenderer {
     return { x: this.visualX, y: this.visualY };
   }
 
+  /** Expose the entity's PIXI container so FX sprites can be attached. */
+  getContainer(): PIXI.Container {
+    return this.container;
+  }
+
   /** Remove this entity from the stage and clean up. */
   destroy() {
     if (this.container.parent) {

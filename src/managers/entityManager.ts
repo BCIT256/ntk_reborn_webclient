@@ -33,6 +33,7 @@ export class EntityManager {
 
   constructor(entityLayer: Container) {
     this.container = entityLayer;
+    this.container.sortableChildren = true;
   }
 
   // ─── Packet handlers ──────────────────────────────────────────────
@@ -103,13 +104,18 @@ export class EntityManager {
       entity.update(dt);
     }
 
-    // Z-sort: entities with higher Y render in front (painter's algorithm)
-    const children = this.container.children;
-    if (children.length >= 2) {
-      children.sort((a, b) => {
-        return (a as Container).y - (b as Container).y;
-      });
+    // Update each entity container's zIndex based on its Y position.
+    // PIXI's sortableChildren then auto-sorts for correct draw order.
+    // This ensures entities lower on screen render in front of those higher up.
+    // FX and damage numbers use fixed high zIndex values so they always
+    // render above entities regardless of Y position.
+    for (const entity of this.entities.values()) {
+      const pos = entity.getPlayerPosition();
+      entity.getContainer().zIndex = pos.y;
     }
+
+    // Also update the local player's zIndex
+    // (handled separately in GameApp since localPlayer isn't stored here)
   }
 
   // ─── Utilities ─────────────────────────────────────────────────────

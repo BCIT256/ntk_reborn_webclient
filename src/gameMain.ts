@@ -3,10 +3,12 @@ import { socket } from "./socket";
 import { EntityRenderer } from "./renderers/entityRenderer";
 import { Camera } from "./renderers/camera";
 import { MapRenderer } from "./renderers/mapRenderer";
+import { FxRenderer } from "./renderers/fxRenderer";
 import { KeyboardManager } from "./inputs/keyboard";
 import { DOMOverlay } from "./ui/domOverlay";
 import { DamageNumberManager } from "./ui/damageNumberManager";
 import { EntityManager } from "./managers/entityManager";
+import { AudioManager } from "./managers/audioManager";
 import { assetManager } from "./utils/assetManager";
 import { eventBus } from "./utils/eventBus";
 
@@ -18,9 +20,11 @@ export class GameApp {
   private localPlayer: EntityRenderer;
   private entityManager: EntityManager;
   private mapRenderer: MapRenderer;
+  private fxRenderer: FxRenderer;
   private keyboard: KeyboardManager;
   private ui: DOMOverlay;
   private damageNumbers: DamageNumberManager;
+  private audioManager: AudioManager;
 
   /** Shared container for all entity sprites (enables Z-sorting by Y). */
   private entityLayer: PIXI.Container;
@@ -38,6 +42,14 @@ export class GameApp {
     canvasContainer.appendChild(this.app.view as HTMLCanvasElement);
 
     this.camera = new Camera();
+
+    // ─── Enable Z-index sorting on all key containers ───────────────
+    // sortableChildren allows PIXI to respect zIndex values on children.
+    // Entities sort by Y (painter's algorithm); FX and damage numbers
+    // use high zIndex values so they always render on top.
+    this.camera.container.sortableChildren = true;
+    this.camera.container.zIndex = 0;
+
     this.app.stage.addChild(this.camera.container);
 
     // Map renderer is added FIRST so it renders BEHIND everything else
@@ -45,6 +57,7 @@ export class GameApp {
 
     // Entity layer sits above the map so entities render on top of tiles
     this.entityLayer = new PIXI.Container();
+    this.entityLayer.zIndex = 100; // Above map tiles (zIndex 0)
     this.camera.container.addChild(this.entityLayer);
 
     // Local player
@@ -59,8 +72,41 @@ export class GameApp {
     // Remote entity manager
     this.entityManager = new EntityManager(this.entityLayer);
 
+    // Helper: look up an entity's world position by entity_id.
+    // Used by DamageNumberManager and FxRenderer.
+    const getEntityPosition = (id: number): { x: number; y: number } | undefined => {
+      if (id === socket.localEntityId) {
+        return this.localPlayer.getPlayerPosition();
+      }
+      const entity = this.entityManager.getEntity(id);
+      if (entity) {
+        return entity.getPlayerPosition();
+      }
+      return undefined;
+    };
+
+    // Helper: look up an entity renderer by entity_id.
+    // Used by FxRenderer to attach FX sprites to entity containers.
+    const getEntityRenderer = (id: number) => {
+      if (id === socket.localEntityId) {
+        return this.localPlayer;
+      }
+      return this.entityManager.getEntity(id);
+    };
+
     // Damage number manager (added to camera container so it scrolls with the world)
-    this.damageNumbers = new DamageNumberManager(this.camera.container);
+    this.damageNumbers = new DamageNumberManager(
+      this.camera.container,
+      getEntityPosition,
+      localId
+    );
+
+    // FX renderer — overlays spell/effect animations on entities
+    this.fxRenderer = new FxRenderer(this.entityLayer, (id) => getEntityRenderer(id));
+
+    // Audio manager — plays sound effects with throttling
+    this.audioManager = new AudioManager();
+
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
 
@@ -83,7 +129,6 @@ export class GameApp {
     }
 
     // ─── Dialog lock via EventBus ──────────────────────────────────────
-    // React InteractionOverlay emits these events when it opens/closes.
     eventBus.on("DialogOpened", () => {
       this.keyboard.locked = true;
     });
@@ -92,13 +137,6 @@ export class GameApp {
     });
 
     // ─── Map Change: async teardown/rebuild handshake ──────────────────
-    // When the server sends a MapChange, we must:
-    //   1. Emit MapTransitionStart (→ React shows loading screen, keyboard locks)
-    //   2. Clear all entities
-    //   3. Destroy old map sprites (memory-safe)
-    //   4. Fetch & load the new map
-    //   5. Reposition the player & camera
-    //   6. Emit MapTransitionComplete (→ React hides loading screen, keyboard unlocks)
     eventBus.on("MapChange", (data) => {
       this.handleMapChange(data);
     });
@@ -130,24 +168,9 @@ export class GameApp {
     eventBus.on("EntityHealthUpdate", (data) => {
       if (data.damage <= 0) return;
 
-      let worldX: number | undefined;
-      let worldY: number | undefined;
-
-      if (data.entity_id === socket.localEntityId) {
-        const pos = this.localPlayer.getPlayerPosition();
-        worldX = pos.x;
-        worldY = pos.y;
-      } else {
-        const entity = this.entityManager.getEntity(data.entity_id);
-        if (entity) {
-          const pos = entity.getPlayerPosition();
-          worldX = pos.x;
-          worldY = pos.y;
-        }
-      }
-
-      if (worldX !== undefined && worldY !== undefined) {
-        this.damageNumbers.spawn(worldX, worldY, data.damage, data.hit_type);
+      const pos = this.getEntityPosition(data.entity_id);
+      if (pos) {
+        this.damageNumbers.spawn(pos.x, pos.y, data.damage, data.hit_type);
       }
     });
 
@@ -157,11 +180,11 @@ export class GameApp {
     });
 
     // ─── Socket → EventBus bridge ──────────────────────────────────
+    // All incoming server packets are forwarded to the EventBus.
+    // PlaySound and PlayAnimation are also routed here.
     socket.onMessage((packet) => {
       switch (packet.type) {
         case "MapChange":
-          // Emit MapTransitionStart immediately so React shows the loading
-          // screen and the keyboard locks BEFORE the async work begins.
           eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
           eventBus.emit("MapChange", packet.payload);
           break;
@@ -198,6 +221,15 @@ export class GameApp {
         case "SpellListUpdate":
           eventBus.emit("SpellListUpdate", packet.payload);
           break;
+        case "PlaySound":
+          eventBus.emit("PlaySound", packet.payload);
+          break;
+        case "PlayAnimation":
+          eventBus.emit("PlayAnimation", packet.payload);
+          break;
+        case "DamageNumber":
+          eventBus.emit("DamageNumber", packet.payload);
+          break;
       }
     });
 
@@ -208,6 +240,12 @@ export class GameApp {
       this.localPlayer.update(dt);
       this.entityManager.update(dt);
       this.damageNumbers.update(dt);
+
+      // Update local player's zIndex based on Y position for correct Z-sorting
+      const localPos = this.localPlayer.getPlayerPosition();
+      if (localPos) {
+        this.localPlayer.getContainer().zIndex = localPos.y;
+      }
 
       this.keyboard.update((direction) => {
         this.localPlayer.predictMove(direction);
@@ -229,10 +267,23 @@ export class GameApp {
     });
   }
 
+  // ─── Helpers ────────────────────────────────────────────────────
+
+  /** Look up an entity's world position by entity_id. */
+  private getEntityPosition(id: number): { x: number; y: number } | undefined {
+    if (id === socket.localEntityId) {
+      return this.localPlayer.getPlayerPosition();
+    }
+    const entity = this.entityManager.getEntity(id);
+    if (entity) {
+      return entity.getPlayerPosition();
+    }
+    return undefined;
+  }
+
   // ─── Map Transition Handler ──────────────────────────────────────
 
   private async handleMapChange(data: { map_id: number; x: number; y: number; objects: any[] }) {
-    // Guard against concurrent transitions (e.g. double warp packet)
     if (this.transitionInProgress) {
       console.warn("Map transition already in progress — ignoring duplicate MapChange.");
       return;
@@ -242,22 +293,11 @@ export class GameApp {
     console.log(`MapChange received → transitioning to map ${data.map_id} at (${data.x}, ${data.y})`);
 
     try {
-      // 1. Input is already locked (MapTransitionStart was emitted in the bridge)
-
-      // 2. Clear all remote entities
       this.entityManager.clearAll();
-
-      // 3. Destroy old map sprites — frees GPU memory
       this.mapRenderer.destroy();
-
-      // 4. Fetch and render the new map
       await this.mapRenderer.loadMap(data.map_id);
-
-      // 5. Reposition the local player to the new coordinates
       this.localPlayer.handleResync(data.x, data.y);
 
-      // 6. Immediately center the camera on the new position
-      //    (prevents jitter when the loading screen fades out)
       const playerPos = this.localPlayer.getPlayerPosition();
       if (playerPos) {
         this.camera.centerOn(
@@ -268,12 +308,10 @@ export class GameApp {
         );
       }
 
-      // 7. Map is fully rendered and camera positioned — signal completion
       console.log(`Map transition to ${data.map_id} complete.`);
       eventBus.emit("MapTransitionComplete");
     } catch (error) {
       console.error("Map transition failed:", error);
-      // Even on failure, unlock input so the player isn't stuck
       eventBus.emit("MapTransitionComplete");
     } finally {
       this.transitionInProgress = false;
@@ -284,6 +322,8 @@ export class GameApp {
     eventBus.clear();
     this.entityManager.clearAll();
     this.damageNumbers.destroy();
+    this.fxRenderer.destroy();
+    this.audioManager.destroy();
     this.keyboard.destroy();
     this.mapRenderer.destroy();
     this.app.destroy(true);

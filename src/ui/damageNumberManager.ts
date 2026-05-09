@@ -1,4 +1,5 @@
 import * as PIXI from "pixi.js";
+import { eventBus } from "../utils/eventBus";
 
 /**
  * Represents a single floating damage number that drifts upward and fades out.
@@ -12,52 +13,135 @@ interface FloatingDamage {
 }
 
 /**
- * DamageNumberManager — spawns world-space floating damage numbers
- * when EntityHealthUpdate packets arrive with damage > 0.
+ * Color mapping for damage number types.
+ * The server sends a color string; we map common values to retro fill colors.
+ */
+const DAMAGE_COLORS: Record<string, string> = {
+  red: "#ff4444",
+  white: "#ffffff",
+  green: "#00ff00",
+  yellow: "#fbbf24",
+  critical: "#fbbf24",
+  heal: "#00ff00",
+  miss: "#888888",
+};
+
+/**
+ * DamageNumberManager — Spawns world-space floating damage numbers
+ * in the classic NexusTK retro style.
  *
- * Lives inside the PixiJS camera container so numbers stay anchored
- * to entity world positions as the camera scrolls.
+ * Driven by two event bus events:
+ *   - DamageNumber:       Dedicated damage number event from the server
+ *   - EntityHealthUpdate: Fallback — auto-spawns a number if damage > 0
+ *
+ * All numbers are rendered as PIXI.Text inside the WebGL canvas
+ * (NOT as DOM/React elements) for 60 FPS performance.
+ *
+ * Z-INDEX: The container has zIndex = 1000 so damage numbers always
+ * render above entities, FX, and map tiles.
  */
 export class DamageNumberManager {
   private container: PIXI.Container;
   private active: FloatingDamage[] = [];
 
-  constructor(cameraContainer: PIXI.Container) {
+  /** Reference to look up entity positions by entity_id. */
+  private getEntityPosition: (id: number) => { x: number; y: number } | undefined;
+
+  /** Local player entity_id for position lookups. */
+  private localEntityId: number;
+
+  /** EventBus unsubscribe functions. */
+  private unsubs: (() => void)[] = [];
+
+  constructor(
+    cameraContainer: PIXI.Container,
+    getEntityPosition: (id: number) => { x: number; y: number } | undefined,
+    localEntityId: number
+  ) {
+    this.getEntityPosition = getEntityPosition;
+    this.localEntityId = localEntityId;
+
     this.container = new PIXI.Container();
-    // Render above entities by placing at the top of the camera's child list
-    // (we'll manage z-order by just ensuring this container is added last)
+    this.container.zIndex = 1000; // Always on top of everything
     cameraContainer.addChild(this.container);
+
+    // Listen for dedicated DamageNumber events
+    this.unsubs.push(
+      eventBus.on("DamageNumber", (data) => {
+        this.handleDamageNumber(data);
+      })
+    );
   }
 
   /**
-   * Spawn a floating damage number at the given world coordinates.
-   * @param worldX  World X in pixels (not tile coords)
-   * @param worldY  World Y in pixels
-   * @param damage  Amount of damage to display
-   * @param hitType  0=normal, 1=critical, 2=miss (future expansion)
+   * Handle a DamageNumber event: find the entity's position and spawn the number.
+   */
+  private handleDamageNumber(data: { entity_id: number; amount: number; color: string }) {
+    const pos = this.getEntityPosition(data.entity_id);
+    if (!pos) return;
+
+    const fillColor = DAMAGE_COLORS[data.color.toLowerCase()] ?? data.color;
+    const isHeal = data.color.toLowerCase() === "green" || data.color.toLowerCase() === "heal";
+    const isCrit = data.color.toLowerCase() === "yellow" || data.color.toLowerCase() === "critical";
+
+    const prefix = isHeal ? "+" : "-";
+    const fontSize = isCrit ? 18 : 14;
+    const duration = isCrit ? 1.4 : 1.0;
+    const driftSpeed = isCrit ? 50 : 40;
+
+    this.spawnAtWorld(pos.x, pos.y, data.amount, prefix, fillColor, fontSize, duration, driftSpeed);
+  }
+
+  /**
+   * Legacy API — spawn a damage number at explicit world coordinates.
+   * Used by the EntityHealthUpdate handler in GameApp.
    */
   spawn(worldX: number, worldY: number, damage: number, hitType: number = 0) {
     if (damage <= 0) return;
 
     const isCrit = hitType === 1;
-    const fontSize = isCrit ? 18 : 14;
     const fill = isCrit ? "#fbbf24" : "#ff4444";
-    const stroke = isCrit ? "#92400e" : "#7f1d1d";
+    const fontSize = isCrit ? 18 : 14;
+    const duration = isCrit ? 1.4 : 1.0;
+    const driftSpeed = isCrit ? 50 : 40;
 
-    const text = new PIXI.Text(`-${damage}`, {
-      fontFamily: "Arial, sans-serif",
+    this.spawnAtWorld(worldX, worldY, damage, "-", fill, fontSize, duration, driftSpeed);
+  }
+
+  /**
+   * Core spawn: create a PIXI.Text, style it retro, and begin the animation.
+   */
+  private spawnAtWorld(
+    worldX: number,
+    worldY: number,
+    amount: number,
+    prefix: string,
+    fill: string,
+    fontSize: number,
+    duration: number,
+    driftSpeed: number
+  ) {
+    const text = new PIXI.Text(`${prefix}${amount}`, {
+      fontFamily: "'Courier New', 'Impact', monospace",
       fontSize,
       fontWeight: "bold",
       fill,
-      stroke,
+      stroke: "#000000",
       strokeThickness: 3,
       align: "center",
-    } as PIXI.TextStyle);
+      dropShadow: true,
+      dropShadowColor: "#000000",
+      dropShadowDistance: 1,
+      dropShadowBlur: 0,
+    } as any); // PIXI v7 TextStyle includes dropShadow but types may lag
 
     text.anchor.set(0.5, 1);
+    text.zIndex = 1000;
+
     // Position above the entity's head (centered on the tile, offset up)
     text.x = worldX + 16;
     text.y = worldY - 8;
+
     // Slight random horizontal jitter so stacking numbers don't overlap perfectly
     text.x += (Math.random() - 0.5) * 10;
 
@@ -66,9 +150,9 @@ export class DamageNumberManager {
     this.active.push({
       text,
       elapsed: 0,
-      duration: isCrit ? 1.4 : 1.0,
+      duration,
       startY: text.y,
-      driftSpeed: isCrit ? 40 : 30,
+      driftSpeed,
     });
   }
 
@@ -83,7 +167,7 @@ export class DamageNumberManager {
       const progress = dmg.elapsed / dmg.duration;
 
       if (progress >= 1) {
-        // Remove completed damage number
+        // Remove completed damage number — destroy the PIXI.Text to free memory
         this.container.removeChild(dmg.text);
         dmg.text.destroy();
         this.active.splice(i, 1);
@@ -112,6 +196,9 @@ export class DamageNumberManager {
 
   /** Clean up all active damage numbers. */
   destroy() {
+    this.unsubs.forEach((unsub) => unsub());
+    this.unsubs = [];
+
     for (const dmg of this.active) {
       if (dmg.text.parent) this.container.removeChild(dmg.text);
       dmg.text.destroy();

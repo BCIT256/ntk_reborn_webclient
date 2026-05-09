@@ -75,9 +75,7 @@ export interface GameEvents {
   DialogClosed: void;
 
   // ─── Map Transitions ──────────────────────────────────────────────
-  /** Fired immediately when a MapChange packet arrives — triggers loading screen + input lock. */
   MapTransitionStart: { map_id: number };
-  /** Fired once the new map is fully rendered and the camera is positioned — removes loading screen + unlocks input. */
   MapTransitionComplete: void;
 
   // ─── Inventory ─────────────────────────────────────────────────────
@@ -89,6 +87,11 @@ export interface GameEvents {
   SpellListUpdate: {
     spells: { spell_id: number; name: string; icon_id: number }[];
   };
+
+  // ─── Combat FX ─────────────────────────────────────────────────────
+  PlaySound: { sound_id: number };
+  PlayAnimation: { entity_id: number | null; anim_id: number; x: number | null; y: number | null };
+  DamageNumber: { entity_id: number; amount: number; color: string };
 }
 
 class EventBusClass {

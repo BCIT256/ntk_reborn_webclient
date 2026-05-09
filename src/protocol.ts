@@ -42,6 +42,9 @@ export interface ServerMessages {
   ShowMenu: { menu_id: number, title: string, options: string[] };
   InventoryUpdate: { items: InventoryItem[] };
   SpellListUpdate: { spells: SpellInfo[] };
+  PlaySound: { sound_id: number };
+  PlayAnimation: { entity_id: number | null, anim_id: number, x: number | null, y: number | null };
+  DamageNumber: { entity_id: number, amount: number, color: string };
 }
 
 export interface InventoryItem {
