@@ -48,9 +48,23 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     sprite.y = (tileY * 48) + top;
 
     // 5. Setup Palette Filter
-    const paletteInfo = AssetManager.paletteMeta.tile_palettes.find(p => p.index === paletteIndex);
+    let paletteInfo = null;
+    
+    const meta = AssetManager.paletteMeta as any;
+    if (Array.isArray(meta)) {
+        paletteInfo = meta.find(p => p.index === paletteIndex);
+    } else if (meta.tile_palettes) {
+        if (Array.isArray(meta.tile_palettes)) {
+            paletteInfo = meta.tile_palettes.find((p: any) => p.index === paletteIndex);
+        } else {
+            // In case it's an object mapping index to PaletteMeta
+            const arr = Object.values(meta.tile_palettes) as any[];
+            paletteInfo = arr.find(p => p.index === paletteIndex);
+        }
+    }
+    
     const animRanges: [number, number][] = paletteInfo 
-        ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
+        ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
         : [];
 
     const masterPaletteHeight = 1024;

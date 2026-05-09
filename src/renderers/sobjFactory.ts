@@ -50,14 +50,28 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         sprite.y = -(i + 1) * 48 + top + 48;
 
         // 5. Setup Palette Filter
-        const tilePaletteCount = AssetManager.paletteMeta.tile_palettes.length;
-        const combinedIndex = paletteIndex + tilePaletteCount;
+        let tilePaletteCount = 0;
+        let paletteInfo = null;
+        let combinedIndex = paletteIndex;
         
-        // Wait, the user said "Match the flattened JSON: tile_palettes: PaletteMeta[];".
-        // But for animRanges, we might still search in tile_palettes. Let's see what they mean:
-        const paletteInfo = AssetManager.paletteMeta.tile_palettes.find(p => p.index === combinedIndex);
-        const animRanges: [number, number][] = paletteInfo 
-            ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
+        const meta = AssetManager.paletteMeta as any;
+        if (Array.isArray(meta)) {
+            paletteInfo = meta.find(p => p.index === paletteIndex);
+        } else if (meta.tile_palettes) {
+            let palettesArray: any[] = [];
+            if (Array.isArray(meta.tile_palettes)) {
+                palettesArray = meta.tile_palettes;
+            } else {
+                palettesArray = Object.values(meta.tile_palettes);
+            }
+            
+            tilePaletteCount = palettesArray.length;
+            combinedIndex = paletteIndex + tilePaletteCount;
+            paletteInfo = palettesArray.find(p => p.index === combinedIndex);
+        }
+
+        const animRanges: [number, number][] = paletteInfo && paletteInfo.animation_ranges
+            ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
             : [];
 
         const masterPaletteHeight = 1024;
