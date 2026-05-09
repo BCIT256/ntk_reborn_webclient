@@ -13,6 +13,7 @@ export class GameApp {
     private ANIMATION_SPEED: number = 150;
     private lastAnimTime: number = 0;
     private unsubscribeMapChange: () => void;
+    private unsubscribePlayerPosition: () => void;
     
     constructor(container: HTMLDivElement, spawnPayload: any) {
         // 1. Initialize Pixi Application
@@ -33,6 +34,9 @@ export class GameApp {
 
         // Listen for MapChange events
         this.unsubscribeMapChange = eventBus.on("MapChange", this.handleMapChange.bind(this));
+        
+        // Listen for PlayerPosition events to move camera
+        this.unsubscribePlayerPosition = eventBus.on("PlayerPosition", this.handlePlayerPosition.bind(this));
     }
 
     public centerCamera(x: number, y: number) {
@@ -77,6 +81,13 @@ export class GameApp {
         this.centerCamera(x, y);
 
         eventBus.emit("MapTransitionComplete");
+    }
+
+    private handlePlayerPosition(payload: any) {
+        const { x, y } = payload;
+        if (x !== undefined && y !== undefined) {
+            this.centerCamera(x, y);
+        }
     }
 
     private lastViewMinX: number = -9999;
@@ -165,6 +176,9 @@ export class GameApp {
     public destroy() {
         if (this.unsubscribeMapChange) {
             this.unsubscribeMapChange();
+        }
+        if (this.unsubscribePlayerPosition) {
+            this.unsubscribePlayerPosition();
         }
         if (this.mapRenderer) {
             this.mapRenderer.destroy();

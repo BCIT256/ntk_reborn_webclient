@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js';
 import { MapData } from '../assets/types';
 import { createTileSprite } from './tileFactory';
 import { createSObjContainer } from './sobjFactory';
+import { AssetManager } from '../managers/assetManager';
 
 const CHUNK_SIZE = 16;
 const TILE_SIZE = 48;
@@ -73,7 +74,15 @@ export class ChunkedMapRenderer {
     }
 
     private buildChunk(cx: number, cy: number, key: string) {
-        console.log("Map Data Sample:", this.mapData.tiles.slice(0, 5));
+        if (cx === 0 && cy === 0) {
+            console.log("Map Data Sample (First 5 tiles):");
+            for (let i = 0; i < Math.min(5, this.mapData.tiles.length); i++) {
+                const tileData = this.mapData.tiles[i];
+                const ab = typeof tileData === 'number' ? tileData : (tileData as any)?.ab;
+                const frameMeta = ab !== undefined ? AssetManager.atlasMeta?.frames[ab] : null;
+                console.log(`Tile ${i}: ab=${ab}, atlas_id=${frameMeta?.atlas_id}, frame_meta=`, frameMeta);
+            }
+        }
 
         const chunkCache: ChunkCache = { ground: [], objects: [] };
 

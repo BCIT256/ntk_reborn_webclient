@@ -55,7 +55,7 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
             ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
             : [];
 
-        const rowHeight = AssetManager.paletteTexture.height || 256;
+        const rowHeight = 256;
         const normalizedRow = (paletteIndex + 0.5) / rowHeight;
 
         const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
