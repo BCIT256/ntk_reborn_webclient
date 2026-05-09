@@ -1,15 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
-import { assetManager } from '@/utils/assetManager';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { assetManager } from "@/utils/assetManager";
+import { eventBus } from "@/utils/eventBus";
+import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// ─── Props for the initial patching mode ─────────────────────────────
 
 interface MapLoadingScreenProps {
   onComplete: () => void;
   targetMapId?: any;
 }
+
+// ─── Component ───────────────────────────────────────────────────────
 
 const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
@@ -25,7 +30,7 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
         await assetManager.loadSpritesheets();
         setStatus("Checking for updates...");
         await assetManager.syncManifest();
-        
+
         setStatus("Downloading Map Assets...");
         await assetManager.downloadMissingMaps((current, total) => {
           setStats({ current, total });
@@ -50,7 +55,7 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
           <AlertTitle>Patching Failed</AlertTitle>
           <AlertDescription>
             {error}
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="mt-4 w-full bg-red-900 hover:bg-red-800 text-white py-2 rounded-md transition-colors"
             >
@@ -79,11 +84,11 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
             <span>{stats.current} / {stats.total}</span>
           )}
         </div>
-        
+
         <div className="relative h-4 w-full overflow-hidden rounded-full bg-slate-900">
-           <Progress value={progress} className="h-full w-full flex-1 bg-blue-600 transition-all duration-300" />
+          <Progress value={progress} className="h-full w-full flex-1 bg-blue-600 transition-all duration-300" />
         </div>
-        
+
         <p className="text-center text-xs text-slate-500 italic">
           Please do not close your browser while the update is in progress.
         </p>
@@ -93,3 +98,59 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
 };
 
 export default MapLoadingScreen;
+
+// ─── Map Transition Overlay ──────────────────────────────────────────
+
+/**
+ * MapTransitionOverlay — Renders a full-screen loading overlay
+ * driven by MapTransitionStart / MapTransitionComplete EventBus events.
+ *
+ * Shows a retro-styled black overlay with "Loading..." text while a map
+ * transition is in progress. Fades out when MapTransitionComplete fires.
+ *
+ * Must be mounted inside the game view (during "playing" state).
+ */
+export const MapTransitionOverlay: React.FC = () => {
+  const [visible, setVisible] = useState(false);
+  const [fadingOut, setFadingOut] = useState(false);
+
+  useEffect(() => {
+    const unsubStart = eventBus.on("MapTransitionStart", () => {
+      setFadingOut(false);
+      setVisible(true);
+    });
+
+    const unsubComplete = eventBus.on("MapTransitionComplete", () => {
+      setFadingOut(true);
+      // Wait for fade-out animation, then unmount
+      setTimeout(() => {
+        setVisible(false);
+        setFadingOut(false);
+      }, 400);
+    });
+
+    return () => {
+      unsubStart();
+      unsubComplete();
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={`absolute inset-0 z-50 flex items-center justify-center bg-black
+                  transition-opacity duration-400
+                  ${fadingOut ? "opacity-0" : "opacity-100"}`}
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="flex flex-col items-center gap-4 select-none">
+        <div className="w-8 h-8 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+        <p className="text-amber-400 font-mono text-sm tracking-widest uppercase">
+          Loading...
+        </p>
+      </div>
+    </div>
+  );
+};

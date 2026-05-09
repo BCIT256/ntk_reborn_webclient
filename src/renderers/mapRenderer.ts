@@ -35,6 +35,34 @@ export class MapRenderer {
     console.log("Map renderer initialized (ParticleContainer + Sprite atlas mode)");
   }
 
+  /**
+   * Destroy all map sprites and graphics to prevent memory leaks.
+   *
+   * IMPORTANT: We must recursively destroy all children, not just remove them.
+   * Simply calling removeChildren() or setting visible=false will leak GPU
+   * textures and crash the browser after several map transitions.
+   */
+  destroy() {
+    // ParticleContainer children: destroy each sprite individually
+    // (ParticleContainer doesn't support destroy with children:true)
+    while (this.particleContainer.children.length > 0) {
+      const child = this.particleContainer.children[0] as PIXI.Sprite;
+      this.particleContainer.removeChild(child);
+      child.destroy();
+    }
+
+    // Fallback Graphics: destroy with children to clean up all Graphics objects
+    this.fallbackContainer.destroy({ children: true });
+
+    // Recreate the fallback container since we destroyed it
+    this.fallbackContainer = new PIXI.Container();
+    this.container.addChild(this.fallbackContainer);
+
+    this.currentMapId = null;
+
+    console.log("MapRenderer: old map destroyed and memory freed.");
+  }
+
   async loadMap(mapId: number | string) {
     const mapIdStr = String(mapId);
     if (this.currentMapId === mapIdStr) return;

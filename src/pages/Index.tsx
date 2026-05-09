@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { GameApp } from "../gameMain";
 import { socket } from "../socket";
-import MapLoadingScreen from "../components/MapLoadingScreen";
+import MapLoadingScreen, { MapTransitionOverlay } from "../components/MapLoadingScreen";
 import SplashScreen from "../components/SplashScreen";
 import TitleScreen from "../components/TitleScreen";
 import InteractionOverlay from "../components/InteractionOverlay";
@@ -93,6 +93,7 @@ const Index = () => {
     const handleMessage = (packet: any) => {
       if (packet.type === "MapChange") {
         console.log("Login successful! Intercepted MapChange:", packet.payload);
+        // Store the full payload including x, y, objects for the GameApp
         setSpawnPayload(packet.payload);
         setGameState("patching");
       }
@@ -299,6 +300,7 @@ const Index = () => {
             >
               <div ref={containerRef} className="w-full h-full" />
               <InteractionOverlay />
+              <MapTransitionOverlay />
             </div>
 
             {/* Right: Game Sidebar */}

@@ -18,7 +18,7 @@ export type ClientToServer = {
 
 export interface ServerMessages {
   LoginSuccess: { entity_id: number };
-  MapChange: { map_id: number };
+  MapChange: { map_id: number, x: number, y: number, objects: any[] };
   SpawnCharacter: {
     entity_id: number, x: number, y: number, direction: number, name: string,
     speed: number, state: number, sex: number, face: number, face_color: number,

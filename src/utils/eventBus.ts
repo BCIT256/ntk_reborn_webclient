@@ -11,7 +11,7 @@ type Listener<T = unknown> = (data: T) => void;
 
 export interface GameEvents {
   // ─── World ────────────────────────────────────────────────────────
-  MapChange: { map_id: number };
+  MapChange: { map_id: number; x: number; y: number; objects: any[] };
   PlayerPosition: { x: number; y: number; view_x: number; view_y: number };
   SpawnCharacter: {
     entity_id: number;
@@ -70,9 +70,15 @@ export interface GameEvents {
   // ─── Chat / System ─────────────────────────────────────────────────
   SystemMessage: { message: string };
 
-  // ─── UI Lock (keyboard) ───────────────────────────────────────────
+  // ─── UI Lock (keyboard / dialog) ───────────────────────────────────
   DialogOpened: void;
   DialogClosed: void;
+
+  // ─── Map Transitions ──────────────────────────────────────────────
+  /** Fired immediately when a MapChange packet arrives — triggers loading screen + input lock. */
+  MapTransitionStart: { map_id: number };
+  /** Fired once the new map is fully rendered and the camera is positioned — removes loading screen + unlocks input. */
+  MapTransitionComplete: void;
 
   // ─── Inventory ─────────────────────────────────────────────────────
   InventoryUpdate: {

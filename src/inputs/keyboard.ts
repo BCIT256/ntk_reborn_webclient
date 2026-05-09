@@ -1,12 +1,18 @@
 import { socket } from "../socket";
+import { eventBus } from "../utils/eventBus";
 
 export class KeyboardManager {
   private keys: Set<string> = new Set();
   private lastMoveTime: number = 0;
-  private moveCooldown: number = 150; // Updated to 150ms as requested
+  private moveCooldown: number = 150;
 
   /** When true (dialog open), movement keys are ignored. */
   public locked: boolean = false;
+
+  /** When true (map transition in progress), movement keys are ignored. */
+  public isInputLocked: boolean = false;
+
+  private unsubs: (() => void)[] = [];
 
   constructor() {
     window.addEventListener("keydown", (e) => {
@@ -15,14 +21,25 @@ export class KeyboardManager {
     window.addEventListener("keyup", (e) => {
       this.keys.delete(e.code);
     });
+
+    // Listen for map transition events to lock/unlock input
+    this.unsubs.push(
+      eventBus.on("MapTransitionStart", () => {
+        this.isInputLocked = true;
+      }),
+      eventBus.on("MapTransitionComplete", () => {
+        this.isInputLocked = false;
+      })
+    );
   }
 
   /**
    * Checks for movement keys and triggers the callback if a move is allowed.
-   * Movement is blocked while `locked` is true (dialog lock).
+   * Movement is blocked while `locked` is true (dialog lock)
+   * or `isInputLocked` is true (map transition).
    */
   update(onMove: (direction: number) => void) {
-    if (this.locked) return;
+    if (this.locked || this.isInputLocked) return;
 
     const now = Date.now();
     if (now - this.lastMoveTime < this.moveCooldown) return;
@@ -37,5 +54,10 @@ export class KeyboardManager {
       onMove(direction);
       this.lastMoveTime = now;
     }
+  }
+
+  destroy() {
+    this.unsubs.forEach((unsub) => unsub());
+    this.unsubs = [];
   }
 }

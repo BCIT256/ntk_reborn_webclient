@@ -25,6 +25,9 @@ export class GameApp {
   /** Shared container for all entity sprites (enables Z-sorting by Y). */
   private entityLayer: PIXI.Container;
 
+  /** Guards against concurrent map transitions. */
+  private transitionInProgress: boolean = false;
+
   constructor(canvasContainer: HTMLElement, initialSpawnData: any = null) {
     this.app = new PIXI.Application({
       resizeTo: canvasContainer,
@@ -88,14 +91,19 @@ export class GameApp {
       this.keyboard.locked = false;
     });
 
-    // ─── Wire EventBus subscriptions ─────────────────────────────────
-    // The socket publishes events to the bus; managers subscribe independently.
-    // This keeps the socket decoupled from the renderer/UI layer.
-
+    // ─── Map Change: async teardown/rebuild handshake ──────────────────
+    // When the server sends a MapChange, we must:
+    //   1. Emit MapTransitionStart (→ React shows loading screen, keyboard locks)
+    //   2. Clear all entities
+    //   3. Destroy old map sprites (memory-safe)
+    //   4. Fetch & load the new map
+    //   5. Reposition the player & camera
+    //   6. Emit MapTransitionComplete (→ React hides loading screen, keyboard unlocks)
     eventBus.on("MapChange", (data) => {
-      this.mapRenderer.loadMap(data.map_id);
-      this.entityManager.clearAll();
+      this.handleMapChange(data);
     });
+
+    // ─── Other EventBus subscriptions ─────────────────────────────────
 
     eventBus.on("PlayerPosition", (data) => {
       this.localPlayer.handleResync(data.x, data.y);
@@ -122,7 +130,6 @@ export class GameApp {
     eventBus.on("EntityHealthUpdate", (data) => {
       if (data.damage <= 0) return;
 
-      // Find the entity's world position so we can place the damage number
       let worldX: number | undefined;
       let worldY: number | undefined;
 
@@ -150,12 +157,12 @@ export class GameApp {
     });
 
     // ─── Socket → EventBus bridge ──────────────────────────────────
-    // All incoming server packets are forwarded to the EventBus.
-    // The switch block is now the single translation layer between
-    // raw socket packets and typed bus events.
     socket.onMessage((packet) => {
       switch (packet.type) {
         case "MapChange":
+          // Emit MapTransitionStart immediately so React shows the loading
+          // screen and the keyboard locks BEFORE the async work begins.
+          eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
           eventBus.emit("MapChange", packet.payload);
           break;
         case "PlayerPosition":
@@ -198,7 +205,6 @@ export class GameApp {
     this.app.ticker.add(() => {
       const dt = this.app.ticker.elapsedMS / 1000;
 
-      // Drive smooth entity interpolation every frame
       this.localPlayer.update(dt);
       this.entityManager.update(dt);
       this.damageNumbers.update(dt);
@@ -223,10 +229,63 @@ export class GameApp {
     });
   }
 
+  // ─── Map Transition Handler ──────────────────────────────────────
+
+  private async handleMapChange(data: { map_id: number; x: number; y: number; objects: any[] }) {
+    // Guard against concurrent transitions (e.g. double warp packet)
+    if (this.transitionInProgress) {
+      console.warn("Map transition already in progress — ignoring duplicate MapChange.");
+      return;
+    }
+    this.transitionInProgress = true;
+
+    console.log(`MapChange received → transitioning to map ${data.map_id} at (${data.x}, ${data.y})`);
+
+    try {
+      // 1. Input is already locked (MapTransitionStart was emitted in the bridge)
+
+      // 2. Clear all remote entities
+      this.entityManager.clearAll();
+
+      // 3. Destroy old map sprites — frees GPU memory
+      this.mapRenderer.destroy();
+
+      // 4. Fetch and render the new map
+      await this.mapRenderer.loadMap(data.map_id);
+
+      // 5. Reposition the local player to the new coordinates
+      this.localPlayer.handleResync(data.x, data.y);
+
+      // 6. Immediately center the camera on the new position
+      //    (prevents jitter when the loading screen fades out)
+      const playerPos = this.localPlayer.getPlayerPosition();
+      if (playerPos) {
+        this.camera.centerOn(
+          playerPos.x,
+          playerPos.y,
+          this.app.screen.width,
+          this.app.screen.height
+        );
+      }
+
+      // 7. Map is fully rendered and camera positioned — signal completion
+      console.log(`Map transition to ${data.map_id} complete.`);
+      eventBus.emit("MapTransitionComplete");
+    } catch (error) {
+      console.error("Map transition failed:", error);
+      // Even on failure, unlock input so the player isn't stuck
+      eventBus.emit("MapTransitionComplete");
+    } finally {
+      this.transitionInProgress = false;
+    }
+  }
+
   destroy() {
     eventBus.clear();
     this.entityManager.clearAll();
     this.damageNumbers.destroy();
+    this.keyboard.destroy();
+    this.mapRenderer.destroy();
     this.app.destroy(true);
   }
 }
