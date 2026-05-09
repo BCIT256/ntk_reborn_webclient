@@ -206,6 +206,13 @@ export class GameApp {
       })
     );
 
+    // ─── Flush buffered events from socket ─────────────────────────
+    // The socket buffers SpawnCharacter/EntityMove/EntityRemove/ChatNormal
+    // events that arrive before GameApp has subscribed. Now that all
+    // eventBus listeners are registered, replay any buffered events so
+    // entities that spawned during the loading screen appear correctly.
+    socket.flushEventBuffer();
+
     // ─── Game loop ─────────────────────────────────────────────────
     this.app.ticker.add(() => {
       const dt = this.app.ticker.elapsedMS / 1000;

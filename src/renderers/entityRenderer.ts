@@ -254,19 +254,20 @@ export class EntityRenderer {
     const tailWidth = 6;
     const tailHeight = 5;
 
-    // Background fill (semi-transparent black)
+    // Rounded rectangle body (separate shape)
     bubbleGfx.beginFill(0x000000, 0.7);
     bubbleGfx.lineStyle(1, 0xcccccc, 0.8);
-
-    // Rounded rectangle body
     bubbleGfx.drawRoundedRect(0, 0, bubbleWidth, bubbleHeight, cornerRadius);
+    bubbleGfx.endFill();
 
-    // Small triangular tail at bottom center pointing down
+    // Small triangular tail at bottom center pointing down (separate shape)
     const tailX = bubbleWidth / 2;
-    bubbleGfx.lineTo(tailX - tailWidth / 2, bubbleHeight);
+    bubbleGfx.beginFill(0x000000, 0.7);
+    bubbleGfx.lineStyle(1, 0xcccccc, 0.8);
+    bubbleGfx.moveTo(tailX - tailWidth / 2, bubbleHeight);
     bubbleGfx.lineTo(tailX, bubbleHeight + tailHeight);
     bubbleGfx.lineTo(tailX + tailWidth / 2, bubbleHeight);
-
+    bubbleGfx.closePath();
     bubbleGfx.endFill();
 
     this.speechBubbleContainer.addChild(bubbleGfx);

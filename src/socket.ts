@@ -3,6 +3,14 @@
 import { ClientToServer, ServerToClient } from "./protocol";
 import { eventBus } from "./utils/eventBus";
 
+/** Event types that must be buffered until GameApp flushes them. */
+const BUFFERED_EVENT_TYPES = new Set<string>([
+  "SpawnCharacter",
+  "EntityMove",
+  "EntityRemove",
+  "ChatNormal",
+]);
+
 class GameSocket {
   private socket: WebSocket | null = null;
   private url: string = "ws://localhost:2010";
@@ -23,6 +31,14 @@ class GameSocket {
   private readonly MAX_RETRIES = 10;
   private readonly MAX_RECONNECT_MS = 90_000;
   private readonly RETRY_DELAY_MS = 5_000;
+
+  /**
+   * Buffer for game-critical events that arrive before GameApp
+   * has subscribed to the eventBus. Once GameApp calls flushEventBuffer(),
+   * these are replayed and subsequent events go directly to the eventBus.
+   */
+  private eventBuffer: ServerToClient[] = [];
+  private bufferActive: boolean = true;
 
   connect() {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
@@ -57,8 +73,6 @@ class GameSocket {
         }
 
         // ─── Forward ALL server packets to the EventBus ──────────────
-        // This ensures events are available to all subscribers regardless
-        // of whether GameApp has been created yet.
         this.forwardToEventBus(data);
 
         this.onMessageCallbacks.forEach(cb => cb(data));
@@ -83,8 +97,14 @@ class GameSocket {
   /**
    * Bridges incoming server packets to the EventBus so all game systems
    * (entity manager, UI, chat, etc.) receive events immediately.
+   *
+   * Critical game events (SpawnCharacter, EntityMove, EntityRemove, ChatNormal)
+   * are ALSO buffered until flushEventBuffer() is called, so GameApp can
+   * receive events that arrived before it subscribed.
    */
   private forwardToEventBus(packet: ServerToClient) {
+    // Always emit immediately for any listeners that are already subscribed
+    // (e.g., React components like BottomHUD for SystemMessage)
     switch (packet.type) {
       case "MapChange":
         eventBus.emit("MapTransitionStart", { map_id: packet.payload.map_id });
@@ -136,6 +156,40 @@ class GameSocket {
         eventBus.emit("DamageNumber", packet.payload);
         break;
     }
+
+    // Also buffer critical game events so GameApp can replay them after subscribing
+    if (this.bufferActive && BUFFERED_EVENT_TYPES.has(packet.type)) {
+      this.eventBuffer.push(packet);
+    }
+  }
+
+  /**
+   * Called by GameApp after it has subscribed to all eventBus events.
+   * Replays any buffered SpawnCharacter/EntityMove/EntityRemove/ChatNormal
+   * events so entities that spawned before GameApp was ready appear correctly.
+   */
+  flushEventBuffer() {
+    this.bufferActive = false;
+    if (this.eventBuffer.length === 0) return;
+
+    console.log(`[Socket] Flushing ${this.eventBuffer.length} buffered events to eventBus`);
+    for (const packet of this.eventBuffer) {
+      switch (packet.type) {
+        case "SpawnCharacter":
+          eventBus.emit("SpawnCharacter", packet.payload);
+          break;
+        case "EntityMove":
+          eventBus.emit("EntityMove", packet.payload);
+          break;
+        case "EntityRemove":
+          eventBus.emit("EntityRemove", packet.payload);
+          break;
+        case "ChatNormal":
+          eventBus.emit("ChatNormal", packet.payload);
+          break;
+      }
+    }
+    this.eventBuffer = [];
   }
 
   private scheduleReconnect() {
@@ -208,6 +262,9 @@ class GameSocket {
   /** Close the WebSocket and stop reconnecting. */
   disconnect() {
     this.resetRetryState();
+    // Re-enable buffering for next session
+    this.bufferActive = true;
+    this.eventBuffer = [];
     if (this.socket) {
       this.socket.onclose = null; // Prevent auto-reconnect
       this.socket.close();

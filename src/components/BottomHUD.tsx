@@ -78,9 +78,18 @@ const BottomHUD = () => {
   );
 
   const handleInputKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Stop propagation so the keyboard manager doesn't pick up WASD/numbers
-    // while the user is typing
+    // Stop propagation on keydown so the KeyboardManager doesn't trigger
+    // movement or hotbar actions while the user is typing.
     e.stopPropagation();
+  }, []);
+
+  const handleInputKeyUp = useCallback((e: React.KeyboardEvent) => {
+    // Do NOT stop propagation on keyup! The KeyboardManager's window-level
+    // keyup listener must see these events so it can clear keys from its
+    // Set. Otherwise, if a user presses WASD while focused on chat and
+    // releases while still focused, that key gets stuck as "held down"
+    // in the KeyboardManager — causing permanent movement after blur.
+    // We intentionally let keyup bubble to window here.
   }, []);
 
   const messageColor = (type: ChatMessage["type"]) => {
@@ -119,7 +128,7 @@ const BottomHUD = () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            onKeyUp={handleInputKeyDown}
+            onKeyUp={handleInputKeyUp}
             placeholder="Say something..."
             maxLength={256}
             className="w-56 bg-slate-950 border-r-2 border-slate-500 text-white text-sm px-2 py-1 outline-none placeholder:text-slate-500"
