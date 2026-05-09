@@ -76,8 +76,24 @@ class AssetManagerSingleton {
                 }
                 const blob = await res.blob();
                 const objectUrl = URL.createObjectURL(blob);
-                const tex = await PIXI.Assets.load(objectUrl);
-                return tex.baseTexture;
+                
+                // Instead of PIXI.Assets.load, just create an Image and pass to BaseTexture
+                // This bypasses PIXI's internal asset parsing issues with blobs
+                return new Promise<PIXI.BaseTexture>((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const baseTex = new PIXI.BaseTexture(img, {
+                            scaleMode: PIXI.SCALE_MODES.NEAREST
+                        });
+                        URL.revokeObjectURL(objectUrl);
+                        resolve(baseTex);
+                    };
+                    img.onerror = (e) => {
+                        URL.revokeObjectURL(objectUrl);
+                        reject(e);
+                    };
+                    img.src = objectUrl;
+                });
             } catch (err) {
                 console.error("Failed to load texture", url, err);
                 throw err;
