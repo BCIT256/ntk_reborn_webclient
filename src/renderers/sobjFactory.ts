@@ -49,14 +49,19 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         sprite.x = left;
         sprite.y = -(i + 1) * 48 + top + 48;
 
-        // 5. Setup Palette Filter (using tilec_palettes)
-        const paletteInfo = AssetManager.paletteMeta.tilec_palettes.find(p => p.index === paletteIndex);
+        // 5. Setup Palette Filter
+        const tilePaletteCount = AssetManager.paletteMeta.tile_palettes.length;
+        const combinedIndex = paletteIndex + tilePaletteCount;
+        
+        // Wait, the user said "Match the flattened JSON: tile_palettes: PaletteMeta[];".
+        // But for animRanges, we might still search in tile_palettes. Let's see what they mean:
+        const paletteInfo = AssetManager.paletteMeta.tile_palettes.find(p => p.index === combinedIndex);
         const animRanges: [number, number][] = paletteInfo 
             ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
             : [];
 
-        const rowHeight = 256;
-        const normalizedRow = (paletteIndex + 0.5) / rowHeight;
+        const masterPaletteHeight = 1024;
+        const normalizedRow = (combinedIndex + 0.5) / masterPaletteHeight;
 
         const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
         sprite.filters = [filter];

@@ -47,9 +47,17 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     sprite.x = (tileX * 48) + left;
     sprite.y = (tileY * 48) + top;
 
-    // 5. Setup Palette Filter (Removed for performance)
-    // Filters are now applied at the container level in MapRenderer
-    // or handled via a Multi-Texture Batcher in the future.
+    // 5. Setup Palette Filter
+    const paletteInfo = AssetManager.paletteMeta.tile_palettes.find(p => p.index === paletteIndex);
+    const animRanges: [number, number][] = paletteInfo 
+        ? paletteInfo.animation_ranges.map(r => [r.min_index, r.max_index])
+        : [];
+
+    const masterPaletteHeight = 1024;
+    const normalizedRow = (paletteIndex + 0.5) / masterPaletteHeight;
+
+    const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
+    sprite.filters = [filter];
 
     return sprite;
 }

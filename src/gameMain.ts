@@ -1,6 +1,7 @@
 import * as PIXI from 'pixi.js';
 import { AssetManager } from './managers/assetManager';
 import { ChunkedMapRenderer } from './renderers/mapRenderer';
+import { EntityManager } from './managers/entityManager';
 import { eventBus } from './utils/eventBus';
 import { KeyboardManager } from './inputs/keyboard';
 import { socket } from './socket';
@@ -8,12 +9,17 @@ import { socket } from './socket';
 export class GameApp {
     private app: PIXI.Application;
     private mapRenderer: ChunkedMapRenderer | null = null;
+    private entityManager: EntityManager;
+    private entityLayer: PIXI.Container;
     private keyboardManager: KeyboardManager;
     private animationTick: number = 0;
     private ANIMATION_SPEED: number = 150;
     private lastAnimTime: number = 0;
     private unsubscribeMapChange: () => void;
     private unsubscribePlayerPosition: () => void;
+    private unsubscribeSpawn: () => void;
+    private unsubscribeEntityMove: () => void;
+    private unsubscribeEntityRemove: () => void;
     
     constructor(container: HTMLDivElement, spawnPayload: any) {
         // 1. Initialize Pixi Application
@@ -27,6 +33,10 @@ export class GameApp {
         // Add the canvas to the React container
         container.appendChild(this.app.view as HTMLCanvasElement);
 
+        this.entityLayer = new PIXI.Container();
+        this.entityLayer.sortableChildren = true;
+        this.entityManager = new EntityManager(this.entityLayer);
+
         // Start initialization
         this.init(spawnPayload);
 
@@ -37,6 +47,11 @@ export class GameApp {
         
         // Listen for PlayerPosition events to move camera
         this.unsubscribePlayerPosition = eventBus.on("PlayerPosition", this.handlePlayerPosition.bind(this));
+        
+        // Entity events
+        this.unsubscribeSpawn = eventBus.on("SpawnCharacter", (payload) => this.entityManager.handleSpawn(payload));
+        this.unsubscribeEntityMove = eventBus.on("EntityMove", (payload) => this.entityManager.handleMove(payload));
+        this.unsubscribeEntityRemove = eventBus.on("EntityRemove", (payload) => this.entityManager.handleRemove(payload.entity_id));
     }
 
     public centerCamera(x: number, y: number) {
@@ -73,9 +88,12 @@ export class GameApp {
             this.mapRenderer.destroy();
         }
 
+        this.entityManager.clearAll();
+
         this.mapRenderer = new ChunkedMapRenderer(AssetManager.currentMap);
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
+        this.app.stage.addChild(this.entityLayer);
 
         // Center the camera on the provided x and y
         this.centerCamera(x, y);
@@ -87,6 +105,12 @@ export class GameApp {
         const { x, y } = payload;
         if (x !== undefined && y !== undefined) {
             this.centerCamera(x, y);
+            if (socket.localEntityId) {
+                const player = this.entityManager.getEntity(socket.localEntityId);
+                if (player) {
+                    player.handleResync(x, y);
+                }
+            }
         }
     }
 
@@ -119,6 +143,7 @@ export class GameApp {
         // 4. Add the layered containers to the Pixi stage
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
+        this.app.stage.addChild(this.entityLayer);
 
         this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
 
@@ -130,6 +155,9 @@ export class GameApp {
 
         eventBus.emit("MapTransitionComplete");
 
+        // Now that GameApp is fully initialized, flush any events that arrived while we were loading
+        socket.flushEventBuffer();
+
         // 5. Add a Ticker loop to process chunks and animations
         this.app.ticker.add((delta) => {
             if (this.app.screen.width === 0) return;
@@ -138,6 +166,8 @@ export class GameApp {
 
             // Ensure stage position is always centered (handles resizes)
             this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+
+            this.entityManager.update(delta / 60);
 
             if (this.mapRenderer) {
                 // Hardcoded static viewport for PoC (0,0 to 30,20 tiles)
@@ -180,8 +210,15 @@ export class GameApp {
         if (this.unsubscribePlayerPosition) {
             this.unsubscribePlayerPosition();
         }
+        if (this.unsubscribeSpawn) this.unsubscribeSpawn();
+        if (this.unsubscribeEntityMove) this.unsubscribeEntityMove();
+        if (this.unsubscribeEntityRemove) this.unsubscribeEntityRemove();
+        
         if (this.mapRenderer) {
             this.mapRenderer.destroy();
+        }
+        if (this.entityManager) {
+            this.entityManager.clearAll();
         }
         if (this.keyboardManager) {
             this.keyboardManager.destroy();

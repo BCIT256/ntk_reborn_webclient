@@ -28,7 +28,6 @@ export interface PaletteMeta {
 
 export interface PaletteMetaFile {
     tile_palettes: PaletteMeta[];
-    tilec_palettes: PaletteMeta[];
 }
 
 export interface TblData {

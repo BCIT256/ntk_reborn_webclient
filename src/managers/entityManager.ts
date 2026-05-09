@@ -1,5 +1,6 @@
 import { Container } from "pixi.js";
 import { EntityRenderer, FallbackType } from "../renderers/entityRenderer";
+import { socket } from "../socket";
 
 /** Matches the SpawnCharacter payload from the protocol. */
 export interface SpawnData {
@@ -47,13 +48,15 @@ export class EntityManager {
       return;
     }
 
+    const isLocalPlayer = data.entity_id === socket.localEntityId;
+
     // Determine fallback colour based on PK status
     const fallbackColor = data.is_pk ? 0xcc4444 : 0x4488cc;
 
     // Determine fallback type from the graphic_id prefix
     let fallbackType: FallbackType = "mob";
     const gid = (data.graphic_id || "").toLowerCase();
-    if (gid.startsWith("player") || gid.startsWith("char")) {
+    if (gid.startsWith("player") || gid.startsWith("char") || isLocalPlayer) {
       fallbackType = "player";
     } else if (gid.startsWith("npc") || gid.startsWith("merchant")) {
       fallbackType = "npc";
@@ -63,7 +66,7 @@ export class EntityManager {
       entityId: data.entity_id,
       name: data.name,
       graphicId: data.graphic_id || "",
-      isLocalPlayer: false,
+      isLocalPlayer,
       fallbackColor,
       fallbackType,
       nameColor: data.name_color,
@@ -82,7 +85,7 @@ export class EntityManager {
   handleMove(data: { entity_id: number; x: number; y: number; direction: number }) {
     const entity = this.entities.get(data.entity_id);
     if (!entity) {
-      // Might be the local player or an entity we haven't seen spawn yet — ignore
+      // Might be an entity we haven't seen spawn yet — ignore
       return;
     }
     entity.moveToTarget(data.x, data.y, data.direction);
