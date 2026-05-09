@@ -6,7 +6,6 @@ import { MapRenderer } from "./renderers/mapRenderer";
 import { KeyboardManager } from "./inputs/keyboard";
 import { DOMOverlay } from "./ui/domOverlay";
 import { HUDManager } from "./ui/hudManager";
-import { DialogManager } from "./ui/dialogManager";
 import { DamageNumberManager } from "./ui/damageNumberManager";
 import { EntityManager } from "./managers/entityManager";
 import { assetManager } from "./utils/assetManager";
@@ -23,7 +22,6 @@ export class GameApp {
   private keyboard: KeyboardManager;
   private ui: DOMOverlay;
   private hud: HUDManager;
-  private dialog: DialogManager;
   private damageNumbers: DamageNumberManager;
 
   /** Shared container for all entity sprites (enables Z-sorting by Y). */
@@ -65,10 +63,6 @@ export class GameApp {
     this.keyboard = new KeyboardManager();
     this.ui = new DOMOverlay();
     this.hud = new HUDManager();
-    this.dialog = new DialogManager();
-
-    // Dialog lock: give the dialog manager access to the keyboard
-    this.dialog.setKeyboardManager(this.keyboard);
 
     this.init(initialSpawnData);
   }
@@ -87,6 +81,15 @@ export class GameApp {
         this.localPlayer.handleResync(initialSpawnData.x, initialSpawnData.y);
       }
     }
+
+    // ─── Dialog lock via EventBus ──────────────────────────────────────
+    // React InteractionOverlay emits these events when it opens/closes.
+    eventBus.on("DialogOpened", () => {
+      this.keyboard.locked = true;
+    });
+    eventBus.on("DialogClosed", () => {
+      this.keyboard.locked = false;
+    });
 
     // ─── Wire EventBus subscriptions ─────────────────────────────────
     // The socket publishes events to the bus; managers subscribe independently.
@@ -147,15 +150,6 @@ export class GameApp {
     // ─── HUD ───────────────────────────────────────────────────────
     eventBus.on("PlayerVitalsUpdate", (data) => {
       this.hud.handleVitalsUpdate(data);
-    });
-
-    // ─── Dialog ────────────────────────────────────────────────────
-    eventBus.on("DialogPopup", (data) => {
-      this.dialog.handleDialogPopup(data);
-    });
-
-    eventBus.on("ShowMenu", (data) => {
-      this.dialog.handleShowMenu(data);
     });
 
     // ─── Chat / System ──────────────────────────────────────────────
@@ -236,7 +230,6 @@ export class GameApp {
     this.entityManager.clearAll();
     this.damageNumbers.destroy();
     this.hud.destroy();
-    this.dialog.destroy();
     this.app.destroy(true);
   }
 }

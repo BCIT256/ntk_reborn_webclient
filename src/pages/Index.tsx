@@ -4,6 +4,8 @@ import { socket } from "../socket";
 import MapLoadingScreen from "../components/MapLoadingScreen";
 import SplashScreen from "../components/SplashScreen";
 import TitleScreen from "../components/TitleScreen";
+import InteractionOverlay from "../components/InteractionOverlay";
+import { InteractionProvider } from "../hooks/useInteractionStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,13 +36,10 @@ const Index = () => {
     let interval: ReturnType<typeof setTimeout> | null = null;
 
     if (gameState === "unauthenticated" && !isOnline) {
-      // Start periodic check only when on the login screen and offline
       interval = setInterval(() => {
         console.log("Attempting periodic reconnect...");
-        // Calling connect() will attempt to establish a new connection.
-        // If successful, handleConnect will be called, setting isOnline to true.
         socket.connect();
-      }, 5000); // Check every 5 seconds
+      }, 5000);
     }
 
     return () => {
@@ -56,7 +55,7 @@ const Index = () => {
       const timeout = setTimeout(() => {
         console.log("Login screen timeout: returning to title screen.");
         setGameState("title");
-      }, 120000); // 2 minutes
+      }, 120000);
 
       return () => clearTimeout(timeout);
     }
@@ -79,14 +78,12 @@ const Index = () => {
 
   useEffect(() => {
     if (gameState === "unauthenticated") {
-      // Start login music
       const audio = loginAudioRef.current;
       if (audio) {
         audio.volume = 0.5;
         audio.play().catch(() => {});
       }
     } else {
-      // Fade out login music when leaving the login screen
       fadeOutLoginMusic();
     }
   }, [gameState, fadeOutLoginMusic]);
@@ -160,116 +157,121 @@ const Index = () => {
   const canSubmit = isOnline && !isConnecting;
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-black relative">
-      {/* ── Splash Screen ────────────────────────────────────────── */}
-      {gameState === "splash" && (
-        <SplashScreen onComplete={() => setGameState("title")} />
-      )}
+    <InteractionProvider>
+      <div className="w-full h-screen overflow-hidden bg-black relative">
+        {/* ── Splash Screen ────────────────────────────────────────── */}
+        {gameState === "splash" && (
+          <SplashScreen onComplete={() => setGameState("title")} />
+        )}
 
-      {/* ── Title Screen ─────────────────────────────────────────── */}
-      {gameState === "title" && (
-        <TitleScreen onComplete={() => setGameState("unauthenticated")} isOnline={isOnline} />
-      )}
+        {/* ── Title Screen ─────────────────────────────────────────── */}
+        {gameState === "title" && (
+          <TitleScreen onComplete={() => setGameState("unauthenticated")} isOnline={isOnline} />
+        )}
 
-      {/* ── Login Screen ─────────────────────────────────────────── */}
-      {gameState === "unauthenticated" && (
-        <div className="flex flex-col items-center justify-center h-full bg-slate-950">
-          {/* ── Login Background Music ──────────────────────────── */}
-          <audio
-            ref={loginAudioRef}
-            src="/assets/login/Yuroxia_login_screen.mp3"
-            loop
-            preload="auto"
-          />
-          <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold text-white tracking-tighter">Yuroxia</h1>
-              <p className="text-slate-400 text-sm">Enter your credentials to connect.</p>
-            </div>
-
-            {/* Connection status indicator */}
-            <div
-              className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg border transition-colors ${
-                isOnline
-                  ? "bg-emerald-950/40 border-emerald-800/50"
-                  : "bg-red-950/40 border-red-800/50"
-              }`}
-            >
-              {isOnline ? (
-                <Wifi className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-red-400" />
-              )}
-              <span
-                className={`text-sm font-medium ${
-                  isOnline ? "text-emerald-300" : "text-red-300"
-                }`}
-              >
-                Server connection: {isOnline ? "Online" : "Offline"}
-              </span>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-slate-300">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-slate-950 border-slate-700 text-white"
-                  placeholder="Enter username"
-                  required
-                />
+        {/* ── Login Screen ─────────────────────────────────────────── */}
+        {gameState === "unauthenticated" && (
+          <div className="flex flex-col items-center justify-center h-full bg-slate-950">
+            {/* ── Login Background Music ──────────────────────────── */}
+            <audio
+              ref={loginAudioRef}
+              src="/assets/login/Yuroxia_login_screen.mp3"
+              loop
+              preload="auto"
+            />
+            <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-6 max-w-sm w-full mx-4">
+              {/* Header */}
+              <div className="text-center space-y-2">
+                <h1 className="text-3xl font-bold text-white tracking-tighter">Yuroxia</h1>
+                <p className="text-slate-400 text-sm">Enter your credentials to connect.</p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-slate-950 border-slate-700 text-white"
-                  placeholder="••••••••"
-                  autoComplete="off"
-                  required
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={!canSubmit}
-                className={`w-full font-semibold py-6 rounded-xl transition-all mt-4 ${
-                  canSubmit
-                    ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-[1.02] active:scale-[0.98]"
-                    : "bg-slate-700 text-slate-400 cursor-not-allowed"
+              {/* Connection status indicator */}
+              <div
+                className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg border transition-colors ${
+                  isOnline
+                    ? "bg-emerald-950/40 border-emerald-800/50"
+                    : "bg-red-950/40 border-red-800/50"
                 }`}
               >
-                {!isOnline
-                  ? "Waiting for server..."
-                  : isConnecting
-                    ? "Connecting..."
-                    : "Enter World"}
-              </Button>
-            </form>
+                {isOnline ? (
+                  <Wifi className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <WifiOff className="w-4 h-4 text-red-400" />
+                )}
+                <span
+                  className={`text-sm font-medium ${
+                    isOnline ? "text-emerald-300" : "text-red-300"
+                  }`}
+                >
+                  Server connection: {isOnline ? "Online" : "Offline"}
+                </span>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-slate-300">Username</Label>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="Enter username"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-slate-300">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-slate-950 border-slate-700 text-white"
+                    placeholder="••••••••"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
+                  className={`w-full font-semibold py-6 rounded-xl transition-all mt-4 ${
+                    canSubmit
+                      ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-[1.02] active:scale-[0.98]"
+                      : "bg-slate-700 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  {!isOnline
+                    ? "Waiting for server..."
+                    : isConnecting
+                      ? "Connecting..."
+                      : "Enter World"}
+                </Button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Map Loading ───────────────────────────────────────────── */}
-      {gameState === "patching" && spawnPayload && (
-        <MapLoadingScreen
-          targetMapId={spawnPayload.map_id}
-          onComplete={() => setGameState("playing")}
-        />
-      )}
+        {/* ── Map Loading ───────────────────────────────────────────── */}
+        {gameState === "patching" && spawnPayload && (
+          <MapLoadingScreen
+            targetMapId={spawnPayload.map_id}
+            onComplete={() => setGameState("playing")}
+          />
+        )}
 
-      {/* ── Game Canvas ───────────────────────────────────────────── */}
-      {gameState === "playing" && (
-        <div ref={containerRef} className="w-full h-full" />
-      )}
-    </div>
+        {/* ── Game Canvas + Interaction Overlay ────────────────────── */}
+        {gameState === "playing" && (
+          <div className="relative w-full h-full">
+            <div ref={containerRef} className="w-full h-full" />
+            <InteractionOverlay />
+          </div>
+        )}
+      </div>
+    </InteractionProvider>
   );
 };
 

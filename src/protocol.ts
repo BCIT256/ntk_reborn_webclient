@@ -3,8 +3,8 @@ export interface ClientMessages {
   Move: { direction: number };
   Action: { action_type: number, target_id: number | null, spell_id: number | null };
   Chat: { message: string };
-  DialogResponse: { npc_id: number, selected_index: number };
-  MenuResponse: { selected_index: number };
+  DialogResponse: { npc_id: number, response: number };
+  MenuResponse: { menu_id: number, selected_index: number };
   UseItem: { inventory_slot: number, target_id: number | null };
   RequestEquipItem: { inventory_slot: number, target_equip_slot: number };
   RequestUnequipItem: { equip_slot: number };
@@ -33,7 +33,7 @@ export interface ServerMessages {
   ChatNormal: { entity_id: number, message: string };
   SystemMessage: { message: string };
   DialogPopup: { npc_id: number, name: string, message: string };
-  ShowMenu: { message: string, options: string[] };
+  ShowMenu: { menu_id: number, title: string, options: string[] };
 }
 
 export type ServerToClient = {

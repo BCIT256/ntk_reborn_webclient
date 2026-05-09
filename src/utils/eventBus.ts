@@ -58,16 +58,23 @@ export interface GameEvents {
 
   // ─── Dialog / Menu ────────────────────────────────────────────────
   DialogPopup: { npc_id: number; name: string; message: string };
-  ShowMenu: { message: string; options: string[] };
+  ShowMenu: { menu_id: number; title: string; options: string[] };
 
   // ─── Chat / System ─────────────────────────────────────────────────
   SystemMessage: { message: string };
+
+  // ─── UI Lock (keyboard) ───────────────────────────────────────────
+  DialogOpened: void;
+  DialogClosed: void;
 }
 
 class EventBusClass {
   private listeners: Map<string, Set<Listener>> = new Map();
 
-  on<K extends keyof GameEvents>(event: K, callback: Listener<GameEvents[K]>): () => void {
+  on<K extends keyof GameEvents>(
+    event: K,
+    callback: GameEvents[K] extends void ? () => void : Listener<GameEvents[K]>
+  ): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
@@ -81,11 +88,13 @@ class EventBusClass {
     };
   }
 
-  emit<K extends keyof GameEvents>(event: K, data: GameEvents[K]): void {
+  emit<K extends keyof GameEvents>(...args: GameEvents[K] extends void ? [event: K] : [event: K, data: GameEvents[K]]): void {
+    const event = args[0] as string;
+    const data = args[1];
     const set = this.listeners.get(event);
     if (!set) return;
     for (const cb of set) {
-      (cb as Listener<GameEvents[K]>)(data);
+      (cb as Listener)(data);
     }
   }
 
