@@ -42,11 +42,16 @@ const BottomHUD = () => {
       const prefix = data.entity_id === socket.localEntityId ? "[You]" : `[${data.entity_id}]`;
       addMessage(`${prefix} ${data.message}`, "chat");
     });
+    // Listen for FocusChatInput event to programmatically focus the input
+    const unsubFocus = eventBus.on("FocusChatInput", () => {
+      inputRef.current?.focus();
+    });
 
     return () => {
       unsubSystem();
       unsubBroadcast();
       unsubChat();
+      unsubFocus();
     };
   }, [addMessage]);
 
@@ -59,9 +64,15 @@ const BottomHUD = () => {
     (e: React.FormEvent) => {
       e.preventDefault();
       const text = inputValue.trim();
-      if (!text) return;
+      if (!text) {
+        // Even if empty, blur so movement resumes immediately
+        inputRef.current?.blur();
+        return;
+      }
       socket.send({ type: "Chat", payload: { message: text } });
       setInputValue("");
+      // Auto-blur: return focus to the body so KeyboardManager resumes WASD
+      inputRef.current?.blur();
     },
     [inputValue]
   );

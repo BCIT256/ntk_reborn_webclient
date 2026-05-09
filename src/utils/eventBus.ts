@@ -99,6 +99,8 @@ export interface GameEvents {
   ToggleSystemMenu: void;
   QuitToTitle: void;
   HotbarSlot: { slot: number };
+  FocusChatInput: void;
+  EnterToChatChanged: { enabled: boolean };
 }
 
 class EventBusClass {

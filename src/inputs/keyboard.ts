@@ -1,6 +1,8 @@
 import { socket } from "../socket";
 import { eventBus } from "../utils/eventBus";
 
+const ENTER_TO_CHAT_KEY = "ntk_enterToChat";
+
 export class KeyboardManager {
   private keys: Set<string> = new Set();
   private lastMoveTime: number = 0;
@@ -12,11 +14,20 @@ export class KeyboardManager {
   /** When true (map transition in progress), movement keys are ignored. */
   public isInputLocked: boolean = false;
 
+  /** When true, pressing Enter focuses the chat input. Toggled via SystemMenu. */
+  private enterToChat: boolean = true;
+
   private unsubs: (() => void)[] = [];
   private keydownHandler: (e: KeyboardEvent) => void;
   private keyupHandler: (e: KeyboardEvent) => void;
 
   constructor() {
+    // Load enterToChat preference from localStorage
+    const stored = localStorage.getItem(ENTER_TO_CHAT_KEY);
+    if (stored !== null) {
+      this.enterToChat = stored === "true";
+    }
+
     this.keydownHandler = (e: KeyboardEvent) => {
       this.keys.add(e.code);
 
@@ -27,9 +38,24 @@ export class KeyboardManager {
         return;
       }
 
+      // ─── Enter / Quote: Focus Chat Input ────────────────────────
+      // Only when NOT already focused on another input/textarea
+      const isChatFocused = this.isChatInputFocused();
+      if (!isChatFocused && !this.locked && !this.isInputLocked) {
+        if (e.code === "Enter" && this.enterToChat) {
+          e.preventDefault();
+          eventBus.emit("FocusChatInput");
+          return;
+        }
+        if (e.code === "Quote") {
+          e.preventDefault();
+          eventBus.emit("FocusChatInput");
+          return;
+        }
+      }
+
       // ─── Hotbar keys (1-9, 0) ───────────────────────────────────
       // Only fire if the chat input is NOT focused
-      const isChatFocused = this.isChatInputFocused();
       if (!isChatFocused && !this.locked && !this.isInputLocked) {
         const hotbarSlot = this.mapCodeToHotbarSlot(e.code, e.shiftKey);
         if (hotbarSlot !== -1) {
@@ -54,6 +80,14 @@ export class KeyboardManager {
       }),
       eventBus.on("MapTransitionComplete", () => {
         this.isInputLocked = false;
+      })
+    );
+
+    // Listen for enterToChat setting changes from the SystemMenu
+    this.unsubs.push(
+      eventBus.on("EnterToChatChanged", (data) => {
+        this.enterToChat = data.enabled;
+        localStorage.setItem(ENTER_TO_CHAT_KEY, String(data.enabled));
       })
     );
   }
@@ -112,6 +146,11 @@ export class KeyboardManager {
       onMove(direction);
       this.lastMoveTime = now;
     }
+  }
+
+  /** Returns the current enterToChat setting. */
+  getEnterToChat(): boolean {
+    return this.enterToChat;
   }
 
   destroy() {

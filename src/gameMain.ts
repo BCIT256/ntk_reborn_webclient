@@ -195,6 +195,17 @@ export class GameApp {
       })
     );
 
+    // ─── Speech Bubbles: route ChatNormal to entity renderers ───────
+    this.eventUnsubs.push(
+      eventBus.on("ChatNormal", (data) => {
+        if (data.entity_id === socket.localEntityId) {
+          this.localPlayer.showSpeechBubble(data.message);
+        } else {
+          this.entityManager.showSpeechBubble(data.entity_id, data.message);
+        }
+      })
+    );
+
     // ─── Game loop ─────────────────────────────────────────────────
     this.app.ticker.add(() => {
       const dt = this.app.ticker.elapsedMS / 1000;

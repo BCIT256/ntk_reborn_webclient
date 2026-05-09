@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { eventBus } from "../utils/eventBus";
 
+const ENTER_TO_CHAT_KEY = "ntk_enterToChat";
+
 /**
  * SystemMenu — Classic NexusTK-style system menu triggered by F1.
  *
  * Retro dialog with two sections:
- *   Settings: Volume sliders for Master, BGM, SFX
+ *   Settings: Volume sliders for Master, BGM, SFX + Enter to Chat toggle
  *   Actions:  "Quit to Title" button
  *
  * Visibility is toggled via the EventBus "ToggleSystemMenu" event.
@@ -16,6 +18,10 @@ const SystemMenu = () => {
   const [masterVol, setMasterVol] = useState(80);
   const [bgmVol, setBgmVol] = useState(60);
   const [sfxVol, setSfxVol] = useState(70);
+  const [enterToChat, setEnterToChat] = useState(() => {
+    const stored = localStorage.getItem(ENTER_TO_CHAT_KEY);
+    return stored !== null ? stored === "true" : true;
+  });
 
   // Listen for F1 toggle via EventBus
   useEffect(() => {
@@ -28,6 +34,12 @@ const SystemMenu = () => {
   const handleQuitToTitle = useCallback(() => {
     setVisible(false);
     eventBus.emit("QuitToTitle");
+  }, []);
+
+  const handleEnterToChatChange = useCallback((enabled: boolean) => {
+    setEnterToChat(enabled);
+    localStorage.setItem(ENTER_TO_CHAT_KEY, String(enabled));
+    eventBus.emit("EnterToChatChanged", { enabled });
   }, []);
 
   // Close on Escape
@@ -109,6 +121,24 @@ const SystemMenu = () => {
               className="flex-1 accent-yellow-400 h-2"
             />
             <span className="text-white w-8 text-right">{sfxVol}</span>
+          </div>
+
+          {/* Enter to Chat toggle */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-slate-300">Enter to Chat</span>
+            <button
+              onClick={() => handleEnterToChatChange(!enterToChat)}
+              className={`w-10 h-5 border-2 flex items-center transition-colors ${
+                enterToChat
+                  ? "bg-yellow-600 border-yellow-400 justify-end"
+                  : "bg-slate-700 border-slate-500 justify-start"
+              }`}
+            >
+              <div className="w-3 h-3 bg-white" />
+            </button>
+            <span className={`w-8 text-right ${enterToChat ? "text-yellow-300" : "text-slate-500"}`}>
+              {enterToChat ? "ON" : "OFF"}
+            </span>
           </div>
         </div>
 

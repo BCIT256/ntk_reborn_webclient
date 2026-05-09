@@ -97,6 +97,14 @@ export class EntityManager {
     console.log(`[EntityManager] Removed entity ${entityId}`);
   }
 
+  /** Show a speech bubble above a specific remote entity. */
+  showSpeechBubble(entityId: number, text: string) {
+    const entity = this.entities.get(entityId);
+    if (entity) {
+      entity.showSpeechBubble(text);
+    }
+  }
+
   // ─── Per-frame update ──────────────────────────────────────────────
 
   update(dt: number) {
