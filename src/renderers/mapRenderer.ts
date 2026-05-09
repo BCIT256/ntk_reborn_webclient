@@ -77,6 +77,8 @@ export class ChunkedMapRenderer {
     }
 
     private buildChunk(cx: number, cy: number, key: string) {
+        console.log("Map Data Sample:", this.mapData.tiles.slice(0, 5));
+
         const chunkCache: ChunkCache = { ground: [], objects: [] };
 
         const startX = cx * CHUNK_SIZE;
@@ -88,20 +90,24 @@ export class ChunkedMapRenderer {
         for (let y = startY; y < endY; y++) {
             for (let x = startX; x < endX; x++) {
                 const index = y * this.mapData.width + x;
-                const tile = this.mapData.tiles[index];
+                const tileData = this.mapData.tiles[index];
                 
-                if (!tile) continue;
+                if (tileData === undefined || tileData === null) continue;
 
-                if (tile.ab > 0) {
-                    const groundSprite = createTileSprite(tile.ab, x, y);
+                // Support both {ab: 1} and flat number 1
+                const ab = typeof tileData === 'number' ? tileData : (tileData as any).ab;
+                const sobj = typeof tileData === 'number' ? -1 : (tileData as any).sobj;
+
+                if (ab !== undefined && ab !== null && ab >= 0) {
+                    const groundSprite = createTileSprite(ab, x, y);
                     if (groundSprite) {
                         this.groundContainer.addChild(groundSprite);
                         chunkCache.ground.push(groundSprite);
                     }
                 }
 
-                if (tile.sobj >= 0) {
-                    const objContainer = createSObjContainer(tile.sobj, x, y);
+                if (sobj !== undefined && sobj !== null && sobj >= 0) {
+                    const objContainer = createSObjContainer(sobj, x, y);
                     if (objContainer) {
                         // Strict Y-sorting constraint: zIndex MUST map to tileY
                         objContainer.zIndex = y; 
