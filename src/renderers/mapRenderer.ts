@@ -95,7 +95,7 @@ export class ChunkedMapRenderer {
         for (let y = startY; y < endY; y++) {
             for (let x = startX; x < endX; x++) {
                 const index = y * this.mapData.width + x;
-                const tileData = this.mapData.tiles[index];
+                const tileData = this.mapData.tiles ? this.mapData.tiles[index] : undefined;
                 
                 if (tileData === undefined || tileData === null) continue;
 
