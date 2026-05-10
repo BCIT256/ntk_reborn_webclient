@@ -165,16 +165,23 @@ class AssetManager {
         batch.map(async (mapId) => {
           try {
             const mapData = await this.fetchMapWithRetry(mapId);
-            await this.saveMapToCache(mapId, mapData);
+            if (mapData !== null) {
+              await this.saveMapToCache(mapId, mapData);
 
-            localManifest[mapId] = this.remoteManifest!.maps[mapId];
-            this.saveLocalManifest(localManifest);
+              localManifest[mapId] = this.remoteManifest!.maps[mapId];
+              this.saveLocalManifest(localManifest);
+            } else {
+              // If it was skipped (e.g. 404), mark it in the local manifest anyway 
+              // so we don't repeatedly try to download a missing map
+              localManifest[mapId] = this.remoteManifest!.maps[mapId];
+              this.saveLocalManifest(localManifest);
+            }
 
             completed++;
             onProgress(completed, total);
           } catch (error) {
             console.error(`Failed to download map ${mapId}:`, error);
-            throw error;
+            // Continue the sequence by not throwing here.
           }
         })
       );
@@ -185,6 +192,10 @@ class AssetManager {
     try {
       const paddedId = String(mapId).padStart(6, '0');
       const response = await fetch(`${this.baseURL}tk${paddedId}.json`);
+      if (response.status === 404) {
+        console.warn(`Map ${mapId} not found, skipping.`);
+        return null;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {
