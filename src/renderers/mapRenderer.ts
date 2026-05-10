@@ -76,7 +76,7 @@ export class ChunkedMapRenderer {
     private buildChunk(cx: number, cy: number, key: string) {
         if (cx === 0 && cy === 0) {
             console.log("Map Data Sample (First 5 tiles):");
-            for (let i = 0; i < Math.min(5, this.mapData.tiles.length); i++) {
+            for (let i = 0; i < Math.min(5, this.mapData.tiles?.length || 0); i++) {
                 const tileData = this.mapData.tiles[i];
                 const ab = typeof tileData === 'number' ? tileData : (tileData as any)?.ab;
                 const frameMeta = ab !== undefined ? AssetManager.atlasMeta?.frames[ab] : null;
