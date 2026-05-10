@@ -64,11 +64,13 @@ class AssetManagerSingleton {
 
             if (mapRes.status === 404) {
                 console.warn(`Map ${mapId} not found, skipping.`);
+                this.currentMap = null;
                 return;
             }
 
             if (!mapRes.ok) {
                 console.error(`Failed to load map ${mapId}: HTTP ${mapRes.status}`);
+                this.currentMap = null;
                 return;
             }
 
@@ -77,12 +79,14 @@ class AssetManagerSingleton {
             // Validate the response looks like actual map data
             if (!data || !data.tiles || !data.width || !data.height) {
                 console.error(`Map ${mapId} response is missing required fields (tiles/width/height), skipping.`);
+                this.currentMap = null;
                 return;
             }
 
             this.currentMap = data;
         } catch (error) {
             console.error(`Failed to load map ${mapId}:`, error);
+            this.currentMap = null;
         }
     }
 

@@ -79,8 +79,13 @@ export class GameApp {
         await AssetManager.loadMap(map_id);
 
         if (!AssetManager.currentMap || !AssetManager.currentMap.tiles || !AssetManager.currentMap.width || !AssetManager.currentMap.height) {
-            console.error(`Failed to load valid map data for map_id: ${map_id}`);
-            return;
+            console.warn(`Failed to load valid map data for map_id: ${map_id}, falling back to blank map.`);
+            AssetManager.currentMap = {
+                map_id: map_id,
+                width: 20,
+                height: 20,
+                tiles: Array(400).fill(0)
+            };
         }
 
         if (this.mapRenderer) {
@@ -134,8 +139,13 @@ export class GameApp {
         }
 
         if (!AssetManager.currentMap || !AssetManager.currentMap.tiles || !AssetManager.currentMap.width || !AssetManager.currentMap.height) {
-            console.error('Failed to load map data — currentMap is null or missing required fields (tiles/width/height)!');
-            return;
+            console.warn('Failed to load valid map data during init! Using a blank fallback map so the client can boot.');
+            AssetManager.currentMap = {
+                map_id: spawnPayload?.map_id || 0,
+                width: 20,
+                height: 20,
+                tiles: Array(400).fill(0)
+            };
         }
 
         // 3. Instantiate ChunkedMapRenderer
