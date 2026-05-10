@@ -20,6 +20,10 @@ export class ChunkedMapRenderer {
 
     constructor(mapData: MapData) {
         this.mapData = mapData;
+
+        if (!mapData.tiles || !mapData.width || !mapData.height) {
+            console.error('ChunkedMapRenderer: mapData is missing required fields (tiles/width/height). Renderer will be empty.');
+        }
         
         this.groundContainer = new PIXI.Container();
         
@@ -34,6 +38,8 @@ export class ChunkedMapRenderer {
     }
 
     public updateVisibleChunks(viewMinX: number, viewMinY: number, viewMaxX: number, viewMaxY: number) {
+        if (!this.mapData.tiles || !this.mapData.width || !this.mapData.height) return;
+
         // Calculate the chunk bounds with a 1-chunk margin
         const startCX = Math.floor(viewMinX / CHUNK_SIZE) - 1;
         const startCY = Math.floor(viewMinY / CHUNK_SIZE) - 1;

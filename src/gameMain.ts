@@ -78,8 +78,8 @@ export class GameApp {
         const { map_id, x, y } = payload;
         await AssetManager.loadMap(map_id);
 
-        if (!AssetManager.currentMap) {
-            console.error(`Failed to load map data for map_id: ${map_id}`);
+        if (!AssetManager.currentMap || !AssetManager.currentMap.tiles || !AssetManager.currentMap.width || !AssetManager.currentMap.height) {
+            console.error(`Failed to load valid map data for map_id: ${map_id}`);
             return;
         }
 
@@ -133,8 +133,8 @@ export class GameApp {
             await AssetManager.loadMap(0);
         }
 
-        if (!AssetManager.currentMap) {
-            console.error('Failed to load map data!');
+        if (!AssetManager.currentMap || !AssetManager.currentMap.tiles || !AssetManager.currentMap.width || !AssetManager.currentMap.height) {
+            console.error('Failed to load map data — currentMap is null or missing required fields (tiles/width/height)!');
             return;
         }
 

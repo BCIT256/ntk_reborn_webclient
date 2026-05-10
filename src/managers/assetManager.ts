@@ -61,7 +61,26 @@ class AssetManagerSingleton {
             const paddedId = String(mapId).padStart(6, '0');
             const url = `http://localhost:2011/assets/maps/tk${paddedId}.json`;
             const mapRes = await fetch(url);
-            this.currentMap = await mapRes.json();
+
+            if (mapRes.status === 404) {
+                console.warn(`Map ${mapId} not found, skipping.`);
+                return;
+            }
+
+            if (!mapRes.ok) {
+                console.error(`Failed to load map ${mapId}: HTTP ${mapRes.status}`);
+                return;
+            }
+
+            const data = await mapRes.json();
+
+            // Validate the response looks like actual map data
+            if (!data || !data.tiles || !data.width || !data.height) {
+                console.error(`Map ${mapId} response is missing required fields (tiles/width/height), skipping.`);
+                return;
+            }
+
+            this.currentMap = data;
         } catch (error) {
             console.error(`Failed to load map ${mapId}:`, error);
         }
