@@ -162,6 +162,32 @@ export class GameApp {
 
         this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
 
+        // 5. Setup Debug Inspector Hit Area & Pointer Tracking
+        this.app.stage.eventMode = 'static';
+        this.app.stage.hitArea = new PIXI.Rectangle(-999999, -999999, 1999998, 1999998);
+        this.app.stage.on('pointermove', (e: PIXI.FederatedPointerEvent) => {
+            const worldPos = this.app.stage.toLocal(e.global);
+            const gridX = Math.floor(worldPos.x / 48);
+            const gridY = Math.floor(worldPos.y / 48);
+
+            if (AssetManager.currentMap) {
+                const mapWidth = AssetManager.currentMap.width;
+                const mapHeight = AssetManager.currentMap.height;
+
+                if (gridX >= 0 && gridX < mapWidth && gridY >= 0 && gridY < mapHeight) {
+                    const index = gridY * mapWidth + gridX;
+                    const tile = AssetManager.currentMap.tiles[index];
+                    
+                    eventBus.emit("HoveredTileData", {
+                        x: gridX,
+                        y: gridY,
+                        index,
+                        tile
+                    });
+                }
+            }
+        });
+
         if (spawnPayload && spawnPayload.x !== undefined && spawnPayload.y !== undefined) {
             this.centerCamera(spawnPayload.x, spawnPayload.y);
         } else {

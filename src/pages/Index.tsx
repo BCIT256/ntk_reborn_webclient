@@ -8,6 +8,7 @@ import InteractionOverlay from "../components/InteractionOverlay";
 import BottomHUD from "../components/BottomHUD";
 import SystemMenu from "../components/SystemMenu";
 import GameSidebar from "../components/GameSidebar";
+import { DebugInspector } from "../components/DebugInspector";
 import { InteractionProvider } from "../hooks/useInteractionStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -335,6 +336,7 @@ const Index = () => {
               <MapTransitionOverlay />
               <BottomHUD />
               <SystemMenu />
+              <DebugInspector />
             </div>
 
             {/* Right: Game Sidebar */}

@@ -10,6 +10,14 @@
 type Listener<T = unknown> = (data: T) => void;
 
 export interface GameEvents {
+  // ─── Debug ────────────────────────────────────────────────────────
+  HoveredTileData: {
+    x: number;
+    y: number;
+    index: number;
+    tile: import("../assets/types").MapTile | number;
+  };
+
   // ─── World ────────────────────────────────────────────────────────
   MapChange: { map_id: number; x: number; y: number; objects: any[] };
   PlayerPosition: { x: number; y: number; view_x: number; view_y: number };
