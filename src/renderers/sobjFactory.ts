@@ -1,6 +1,9 @@
 import * as PIXI from 'pixi.js';
 import { AssetManager } from '../managers/assetManager';
 import { createPaletteFilter } from '../shaders/paletteShader';
+import { gameApp } from '../gameMain';
+
+const bakedSobjCache = new Map<string, PIXI.Texture>();
 
 export function createSObjContainer(sobjIndex: number, x: number, y: number): PIXI.Container | null {
     if (!AssetManager.sobjTbl) return null;
@@ -42,13 +45,6 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         const maskTexture = new PIXI.Texture(maskBase, frameRect);
         const paletteTexture = new PIXI.Texture(AssetManager.paletteTexture);
 
-        // 4. Create Sprite
-        const sprite = new PIXI.Sprite(indexTexture);
-        
-        // Stack the SObj parts: Each sprite is a vertical layer. Offset y by -48 * layerIndex
-        sprite.x = left;
-        sprite.y = top - 48 * i;
-
         // 5. Setup Palette Filter
         let tilePaletteCount = 0;
         let paletteInfo = null;
@@ -71,8 +67,29 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
         const masterPaletteHeight = 1024;
         const normalizedRow = (combinedIndex + 0.5) / masterPaletteHeight;
 
-        const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
-        sprite.filters = [filter];
+        const cacheKey = `${atlas_id}_${frameX}_${frameY}_${width}_${height}_${combinedIndex}`;
+        let bakedTexture = bakedSobjCache.get(cacheKey);
+
+        if (!bakedTexture && gameApp) {
+            const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
+            const tempSprite = new PIXI.Sprite(indexTexture);
+            tempSprite.filters = [filter];
+            bakedTexture = gameApp.renderer.generateTexture(tempSprite);
+            bakedSobjCache.set(cacheKey, bakedTexture);
+        }
+
+        // 4. Create Sprite
+        const sprite = new PIXI.Sprite(bakedTexture || indexTexture);
+        
+        // Stack the SObj parts: Each sprite is a vertical layer. Offset y by -48 * layerIndex
+        sprite.x = left;
+        sprite.y = top - 48 * i;
+
+        // 5. Setup Palette Filter ONLY if baking failed
+        if (!bakedTexture) {
+            const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
+            sprite.filters = [filter];
+        }
 
         container.addChild(sprite);
     }

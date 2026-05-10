@@ -30,11 +30,7 @@ export class ChunkedMapRenderer {
         this.objectContainer = new PIXI.Container();
         this.objectContainer.sortableChildren = true; // Essential for Y-sorting
 
-        // Apply dummy filters for now, pending Multi-Texture Batcher
-        // as the current shader is too complex to handle many tiles in one pass
-        const colorMatrix = new PIXI.ColorMatrixFilter();
-        this.groundContainer.filters = [colorMatrix];
-        this.objectContainer.filters = [colorMatrix];
+        // Removed dummy filters as we are using Texture Baking now
     }
 
     public updateVisibleChunks(viewMinX: number, viewMinY: number, viewMaxX: number, viewMaxY: number) {

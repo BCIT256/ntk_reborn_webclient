@@ -6,6 +6,8 @@ import { eventBus } from './utils/eventBus';
 import { KeyboardManager } from './inputs/keyboard';
 import { socket } from './socket';
 
+export let gameApp: PIXI.Application | null = null;
+
 export class GameApp {
     private app: PIXI.Application;
     private mapRenderer: ChunkedMapRenderer | null = null;
@@ -33,6 +35,8 @@ export class GameApp {
 
         // Add the canvas to the React container
         container.appendChild(this.app.view as HTMLCanvasElement);
+
+        gameApp = this.app;
 
         this.entityLayer = new PIXI.Container();
         this.entityLayer.sortableChildren = true;

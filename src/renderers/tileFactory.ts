@@ -2,6 +2,9 @@ import * as PIXI from 'pixi.js';
 import { AssetManager } from '../managers/assetManager';
 import { createPaletteFilter } from '../shaders/paletteShader';
 import { PaletteAnimRange } from '../assets/types';
+import { gameApp } from '../gameMain';
+
+const bakedTileCache = new Map<string, PIXI.Texture>();
 
 export function createTileSprite(tileIndex: number, tileX: number, tileY: number): PIXI.Sprite | null {
     if (!AssetManager.atlasMeta || !AssetManager.tblData || !AssetManager.paletteMeta) {
@@ -40,13 +43,6 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     // Using the master palette base texture
     const paletteTexture = new PIXI.Texture(AssetManager.paletteTexture);
 
-    // 4. Create Sprite
-    const sprite = new PIXI.Sprite(indexTexture);
-    
-    // Calculate final position based on grid (48x48 typical for NTK tiles, adjusting by frame offsets)
-    sprite.x = (tileX * 48) + left;
-    sprite.y = (tileY * 48) + top;
-
     // 5. Setup Palette Filter
     let paletteInfo = null;
     
@@ -70,8 +66,29 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
     const masterPaletteHeight = 1024;
     const normalizedRow = (paletteIndex + 0.5) / masterPaletteHeight;
 
-    const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
-    sprite.filters = [filter];
+    const cacheKey = `${atlas_id}_${x}_${y}_${width}_${height}_${paletteIndex}`;
+    let bakedTexture = bakedTileCache.get(cacheKey);
+
+    if (!bakedTexture && gameApp) {
+        const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
+        const tempSprite = new PIXI.Sprite(indexTexture);
+        tempSprite.filters = [filter];
+        bakedTexture = gameApp.renderer.generateTexture(tempSprite);
+        bakedTileCache.set(cacheKey, bakedTexture);
+    }
+
+    // 4. Create Sprite
+    const sprite = new PIXI.Sprite(bakedTexture || indexTexture);
+    
+    // Calculate final position based on grid (48x48 typical for NTK tiles, adjusting by frame offsets)
+    sprite.x = (tileX * 48) + left;
+    sprite.y = (tileY * 48) + top;
+
+    // 5. Setup Palette Filter ONLY if baking failed
+    if (!bakedTexture) {
+        const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
+        sprite.filters = [filter];
+    }
 
     return sprite;
 }
