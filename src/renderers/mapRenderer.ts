@@ -118,6 +118,8 @@ export class ChunkedMapRenderer {
                 if (ab !== undefined && ab !== null && ab >= 0) {
                     const groundSprite = createTileSprite(ab, x, y);
                     if (groundSprite) {
+                        groundSprite.x = Math.floor(groundSprite.x);
+                        groundSprite.y = Math.floor(groundSprite.y);
                         this.groundContainer.addChild(groundSprite);
                         chunkCache.ground.push(groundSprite);
                     }
@@ -126,6 +128,8 @@ export class ChunkedMapRenderer {
                 if (sobj >= 0) {
                     const objContainer = createSObjContainer(sobj, x, y);
                     if (objContainer) {
+                        objContainer.x = Math.floor(objContainer.x);
+                        objContainer.y = Math.floor(objContainer.y);
                         // Strict Y-sorting constraint: zIndex MUST map to tileY
                         objContainer.zIndex = y; 
                         this.objectContainer.addChild(objContainer);

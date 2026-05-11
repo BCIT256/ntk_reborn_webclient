@@ -87,10 +87,10 @@ export class EntityView extends PIXI.Container {
         await AssetManager.loadEpfAsset(layerName, id);
 
         const textureName = this.getTextureName(layerName, id, direction, frame);
-        const texture = AssetManager.getTexture(layerName, id, textureName) || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
+        const loadedTexture = AssetManager.getTexture(layerName, id, textureName) || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
 
-        if (texture) {
-            sprite.texture = texture;
+        if (loadedTexture) {
+            sprite.texture = loadedTexture;
             sprite.visible = true;
 
             if (colorIndex > 0 && AssetManager.paletteTexture && AssetManager.paletteMeta) {
@@ -99,11 +99,11 @@ export class EntityView extends PIXI.Container {
 
                 if (!sprite.filters || sprite.filters.length === 0) {
                     const palTex = new PIXI.Texture(AssetManager.paletteTexture);
-                    sprite.filters = [createPaletteFilter(texture, palTex, normalizedRow, [])];
+                    sprite.filters = [createPaletteFilter(loadedTexture, palTex, normalizedRow, [])];
                 } else {
                     const filter = sprite.filters[0] as any;
                     filter.uniforms.uPaletteRow = normalizedRow;
-                    filter.uniforms.uMaskSampler = texture;
+                    filter.uniforms.uMaskSampler = loadedTexture;
                 }
             } else {
                 sprite.filters = null;

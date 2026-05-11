@@ -6,6 +6,8 @@ import { eventBus } from './utils/eventBus';
 import { KeyboardManager } from './inputs/keyboard';
 import { socket } from './socket';
 
+PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
+
 export let gameApp: PIXI.Application | null = null;
 
 export class GameApp {
@@ -61,9 +63,9 @@ export class GameApp {
 
     public centerCamera(x: number, y: number) {
         const TILE_SIZE = 48;
-        this.app.stage.pivot.x = x * TILE_SIZE;
-        this.app.stage.pivot.y = y * TILE_SIZE;
-        this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+        this.app.stage.pivot.x = Math.floor(x * TILE_SIZE);
+        this.app.stage.pivot.y = Math.floor(y * TILE_SIZE);
+        this.app.stage.position.set(Math.floor(this.app.screen.width / 2), Math.floor(this.app.screen.height / 2));
 
         const cameraTileX = x;
         const cameraTileY = y;
@@ -117,7 +119,32 @@ export class GameApp {
         if (x !== undefined && y !== undefined) {
             this.centerCamera(x, y);
             if (socket.localEntityId) {
-                const player = this.entityManager.getEntity(socket.localEntityId);
+                let player = this.entityManager.getEntity(socket.localEntityId);
+                
+                // If local player doesn't exist yet, force spawn them with default visuals
+                if (!player) {
+                    this.entityManager.handleSpawn({
+                        entity_id: socket.localEntityId,
+                        x, y, direction: 2, name: "Player", name_color: 0xffffff,
+                        speed: 200, state: 0, sex: 1, face: 1, face_color: 0, hair: 1,
+                        hair_color: 0, skin_color: 0, equipment: [], is_grouped: false,
+                        is_pk: false, graphic_id: "player_base",
+                        body: 1
+                    } as any);
+                    player = this.entityManager.getEntity(socket.localEntityId);
+                } else {
+                    // Force a default visual state if missing
+                    const visualData = (player as any).visualData || {};
+                    if (!visualData.body && !visualData.face && !visualData.hair) {
+                        visualData.body = 1;
+                        visualData.face = 1;
+                        visualData.hair = 1;
+                        (player as any).visualData = visualData;
+                        // Trigger an update
+                        (player as any).updateViewState();
+                    }
+                }
+
                 if (player) {
                     player.handleResync(x, y);
                 }
@@ -208,7 +235,7 @@ export class GameApp {
             this.keyboardManager.update((dir) => this.handleMove(dir));
 
             // Ensure stage position is always centered (handles resizes)
-            this.app.stage.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+            this.app.stage.position.set(Math.floor(this.app.screen.width / 2), Math.floor(this.app.screen.height / 2));
 
             this.entityManager.update(delta / 60);
 
@@ -216,8 +243,8 @@ export class GameApp {
                 const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
                     const pos = player.getPlayerPosition();
-                    this.app.stage.pivot.x = pos.x + 24; // Center on player (48/2 offset)
-                    this.app.stage.pivot.y = pos.y + 24;
+                    this.app.stage.pivot.x = Math.floor(pos.x + 24); // Center on player (48/2 offset)
+                    this.app.stage.pivot.y = Math.floor(pos.y + 24);
                 }
             }
 

@@ -416,7 +416,7 @@ export class EntityRenderer {
     this.switchAnimation("idle", dirName);
   }
 
-  private updateViewState(frame: number = 0) {
+  public updateViewState(frame: number = 0) {
     const dirName = DIRECTION_NAMES[this.direction];
     const action = this.movementState;
     // Maps to state
