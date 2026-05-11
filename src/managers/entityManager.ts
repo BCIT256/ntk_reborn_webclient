@@ -136,6 +136,10 @@ export class EntityManager {
     return this.entities.get(id);
   }
 
+  getAllEntities(): EntityRenderer[] {
+    return Array.from(this.entities.values());
+  }
+
   hasEntity(id: number): boolean {
     return this.entities.has(id);
   }

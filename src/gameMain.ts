@@ -187,6 +187,7 @@ export class GameApp {
     private lastViewMinY: number = -9999;
 
     private async init(spawnPayload: any) {
+        PIXI.BaseTexture.defaultOptions.scaleMode = PIXI.SCALE_MODES.NEAREST;
         // 2. Load all assets via AssetManager
         await AssetManager.fetchAssets();
         await AssetManager.loadTextures();
@@ -270,12 +271,23 @@ export class GameApp {
 
             this.entityManager.update(delta / 60);
 
+            // Sync render to logic position for all entities
+            const activeEntities = this.entityManager.getAllEntities();
+            for (const entity of activeEntities) {
+                const pos = entity.getPlayerPosition();
+                const container = entity.getContainer();
+                container.x = Math.floor(pos.x);
+                container.y = Math.floor(pos.y);
+            }
+
             if (socket.localEntityId) {
                 const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
                     const pos = player.getPlayerPosition();
-                    this.app.stage.pivot.x = Math.floor(pos.x + 24); // Center on player (48/2 offset)
-                    this.app.stage.pivot.y = Math.floor(pos.y + 24);
+                    const targetX = pos.x + 24;
+                    const targetY = pos.y + 24;
+                    this.app.stage.pivot.x = Math.floor(targetX);
+                    this.app.stage.pivot.y = Math.floor(targetY);
                 }
             }
 
