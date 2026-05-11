@@ -136,7 +136,7 @@ export class GameApp {
         // Let MapChange handle the map loading, but if we need a default map immediately, we load it here or rely on spawnPayload.
         // Usually, the server will send a MapChange packet, so we don't strictly need tk0001 here unless required.
         // Wait for MapChange for initial map, or load based on spawnPayload if it contains map_id.
-        if (spawnPayload && spawnPayload.map_id !== undefined) {
+        if (spawnPayload && spawnPayload.map_id !== undefined && spawnPayload.map_id !== null) {
             await AssetManager.loadMap(spawnPayload.map_id);
         } else {
             // Fallback for PoC: Load Map 0 explicitly through proper loadMap function
@@ -146,7 +146,7 @@ export class GameApp {
         if (!AssetManager.currentMap || !AssetManager.currentMap.tiles || !AssetManager.currentMap.width || !AssetManager.currentMap.height) {
             console.warn('Failed to load valid map data during init! Using a blank fallback map so the client can boot.');
             AssetManager.currentMap = {
-                map_id: spawnPayload?.map_id || 0,
+                map_id: spawnPayload?.map_id ?? 0,
                 width: 20,
                 height: 20,
                 tiles: Array(400).fill(0)
