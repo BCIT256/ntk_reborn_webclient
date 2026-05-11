@@ -134,7 +134,7 @@ const Index = () => {
     const handleDisconnect = () => setIsOnline(false);
 
     const handleConnectionLost = () => {
-      console.log("Connection lost — handling state change.");
+      console.log("Connection lost — returning to login screen.");
       if (gameRef.current) {
         gameRef.current.destroy();
         gameRef.current = null;
@@ -142,10 +142,7 @@ const Index = () => {
       setSpawnPayload(null);
       setPassword("");
       setIsOnline(false);
-      setGameState((prev) => {
-        if (prev === "splash" || prev === "title") return prev;
-        return "unauthenticated";
-      });
+      setGameState("unauthenticated");
     };
 
     socket.onMessage(handleMessage);
