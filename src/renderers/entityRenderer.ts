@@ -188,15 +188,15 @@ export class EntityRenderer {
   }
 
   update(dt: number) {
+    // Smooth lerp towards target
+    this.visualX += (this.targetX - this.visualX) * 0.3;
+    this.visualY += (this.targetY - this.visualY) * 0.3;
+
     const dx = this.targetX - this.visualX;
     const dy = this.targetY - this.visualY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist > SNAP_THRESHOLD) {
-      const step = Math.min(MOVE_SPEED * dt, dist);
-      this.visualX += (dx / dist) * step;
-      this.visualY += (dy / dist) * step;
-    } else {
+    if (dist <= SNAP_THRESHOLD) {
       this.visualX = this.targetX;
       this.visualY = this.targetY;
 

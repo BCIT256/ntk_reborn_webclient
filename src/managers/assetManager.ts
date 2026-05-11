@@ -31,7 +31,11 @@ class AssetManagerSingleton {
 
         try {
             const url = `http://localhost:2011/assets/sprites/${layer}_${id}.json`;
-            const sheet = await PIXI.Assets.load(url);
+            console.log("Attempting to load EPF:", url);
+            const sheet = await PIXI.Assets.load(url).catch(err => {
+                console.error("EPF Load failed for", url, err);
+                throw err;
+            });
             if (sheet && sheet.data && sheet.data.frames) {
                 this.epfFrames.set(epfKey, sheet.data.frames);
                 this.epfSheets.set(epfKey, sheet);

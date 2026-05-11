@@ -120,12 +120,27 @@ export class GameApp {
     private handlePlayerPosition(payload: any) {
         const { x, y } = payload;
         if (x !== undefined && y !== undefined) {
-            this.centerCamera(x, y);
             if (socket.localEntityId) {
                 const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
-                    player.handleResync(x, y);
+                    const currentX = player.getPlayerPosition().x / 48;
+                    const currentY = player.getPlayerPosition().y / 48;
+                    const dist = Math.sqrt(Math.pow(currentX - x, 2) + Math.pow(currentY - y, 2));
+                    
+                    if (dist > 3) {
+                        // Warp/teleport - snap everything
+                        this.centerCamera(x, y);
+                        player.handleResync(x, y);
+                    } else {
+                        // Normal walk update - smoothly lerp
+                        // Hack: read private direction or default to 2 (down)
+                        player.moveToTarget(x, y, (player as any).direction || 2);
+                    }
+                } else {
+                    this.centerCamera(x, y);
                 }
+            } else {
+                this.centerCamera(x, y);
             }
         }
     }
@@ -276,8 +291,8 @@ export class GameApp {
             for (const entity of activeEntities) {
                 const pos = entity.getPlayerPosition();
                 const container = entity.getContainer();
-                container.x = Math.floor(pos.x);
-                container.y = Math.floor(pos.y);
+                container.x = pos.x;
+                container.y = pos.y;
             }
 
             if (socket.localEntityId) {
@@ -286,8 +301,8 @@ export class GameApp {
                     const pos = player.getPlayerPosition();
                     const targetX = pos.x + 24;
                     const targetY = pos.y + 24;
-                    this.app.stage.pivot.x = Math.floor(targetX);
-                    this.app.stage.pivot.y = Math.floor(targetY);
+                    this.app.stage.pivot.x = targetX;
+                    this.app.stage.pivot.y = targetY;
                 }
             }
 
