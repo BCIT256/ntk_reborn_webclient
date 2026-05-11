@@ -100,6 +100,7 @@ export class GameApp {
 
         this.entityManager.clearAll();
 
+        console.log("Map Data being passed to renderer:", AssetManager.currentMap);
         this.mapRenderer = new ChunkedMapRenderer(AssetManager.currentMap);
         this.app.stage.addChild(this.mapRenderer.groundContainer);
         this.app.stage.addChild(this.mapRenderer.objectContainer);
@@ -153,6 +154,7 @@ export class GameApp {
         }
 
         // 3. Instantiate ChunkedMapRenderer
+        console.log("Map Data being passed to renderer:", AssetManager.currentMap);
         this.mapRenderer = new ChunkedMapRenderer(AssetManager.currentMap);
 
         // 4. Add the layered containers to the Pixi stage

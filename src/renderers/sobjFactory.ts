@@ -6,7 +6,10 @@ import { gameApp } from '../gameMain';
 const bakedSobjCache = new Map<string, PIXI.Texture>();
 
 export function createSObjContainer(sobjIndex: number, x: number, y: number): PIXI.Container | null {
-    if (!AssetManager.sobjTbl) return null;
+    if (!AssetManager.sobjTbl) {
+        console.error("CRITICAL: sobjTable is undefined! AssetManager did not load it before rendering.");
+        return null;
+    }
 
     const sobjDef = (AssetManager.sobjTbl as any).objects ? (AssetManager.sobjTbl as any).objects[sobjIndex] : AssetManager.sobjTbl.entries[sobjIndex];
     if (!sobjDef || sobjDef.height < 1) {
