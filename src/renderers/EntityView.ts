@@ -36,10 +36,19 @@ export class EntityView extends PIXI.Container {
     private shieldSprite: PIXI.Sprite;
     private weaponSprite: PIXI.Sprite;
     private helmetSprite: PIXI.Sprite;
+    private debugPlaceholder: PIXI.Graphics;
 
     constructor() {
         super();
         this.sortableChildren = true;
+
+        this.debugPlaceholder = new PIXI.Graphics();
+        this.debugPlaceholder.beginFill(0xFF0000);
+        this.debugPlaceholder.drawRect(-16, -48, 32, 48);
+        this.debugPlaceholder.endFill();
+        this.debugPlaceholder.zIndex = 10;
+        this.debugPlaceholder.visible = false;
+        this.addChild(this.debugPlaceholder);
 
         // shadow, mount, body, face, hair, armor, shield, weapon, helmet
         this.shadowSprite = this.createSprite(0);
@@ -65,17 +74,25 @@ export class EntityView extends PIXI.Container {
         const dir = state.direction || "down";
         const frame = state.frame || 0;
 
-        await Promise.all([
-            this.updateLayer(this.shadowSprite, "shadow", 1, dir, frame, 0),
-            this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
-            this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor),
-            this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor),
-            this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor),
-            this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor),
-            this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor),
-            this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor),
-            this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
-        ]);
+        let hasError = false;
+
+        try {
+            await Promise.all([
+                this.updateLayer(this.shadowSprite, "shadow", 1, dir, frame, 0),
+                this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
+                this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor),
+                this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor),
+                this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor),
+                this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor),
+                this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor),
+                this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor),
+                this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
+            ]);
+        } catch (e) {
+            hasError = true;
+        }
+
+        this.debugPlaceholder.visible = hasError;
     }
 
     private async updateLayer(sprite: PIXI.Sprite, layerName: string, id: number | undefined, direction: string, frame: number, colorIndex: number = 0) {
@@ -84,7 +101,12 @@ export class EntityView extends PIXI.Container {
             return;
         }
 
-        await AssetManager.loadEpfAsset(layerName, id);
+        try {
+            await AssetManager.loadEpfAsset(layerName, id);
+        } catch (error) {
+            sprite.visible = false;
+            throw error;
+        }
 
         const textureName = this.getTextureName(layerName, id, direction, frame);
         const loadedTexture = AssetManager.getTexture(layerName, id, textureName) || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));

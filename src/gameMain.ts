@@ -33,6 +33,7 @@ export class GameApp {
             backgroundColor: 0x000000,
             resolution: window.devicePixelRatio || 1,
             autoDensity: true,
+            roundPixels: true,
             autoStart: false // Don't start the ticker until assets are loaded
         });
 
