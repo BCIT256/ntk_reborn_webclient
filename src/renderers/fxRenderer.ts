@@ -135,22 +135,17 @@ export class FxRenderer {
     const cached = this.textureCache.get(animId);
     if (cached) return cached;
 
-    if (this.loadedAnimations.has(animId)) {
-      return this.loadedAnimations.get(animId)!;
-    }
-
     try {
       // Use absolute backend URL
       const spritesheet = await PIXI.Assets.load(`http://localhost:2011/assets/fx/${animId}.json`) as PIXI.Spritesheet;
-      const textures = Object.values(spritesheet.textures);
-      this.loadedAnimations.set(animId, textures);
-      return textures;
+      this.textureCache.set(animId, spritesheet);
+      return spritesheet;
     } catch (e) {
       // Fallback: load as single image
       try {
         const texture = await PIXI.Assets.load(`http://localhost:2011/assets/fx/${animId}.png`) as PIXI.Texture;
-        this.loadedAnimations.set(animId, [texture]);
-        return [texture];
+        this.textureCache.set(animId, texture);
+        return texture;
       } catch (err) {
         // No FX asset found
       }
