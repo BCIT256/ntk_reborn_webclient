@@ -60,7 +60,7 @@ export class GameApp {
         this.unsubscribeSpawnEntity = eventBus.on("SpawnEntity", (payload) => this.handleSpawnEntity(payload));
         this.unsubscribeSpawn = eventBus.on("SpawnCharacter", (payload) => this.entityManager.handleSpawn(payload));
         this.unsubscribeEntityMove = eventBus.on("EntityMove", (payload) => this.entityManager.handleMove(payload));
-        this.unsubscribeEntityRemove = eventBus.on("EntityRemove", (payload) => this.entityManager.handleRemove(payload.entity_id));
+        this.unsubscribeEntityRemove = eventBus.on("EntityRemove", (payload) => this.entityManager.handleRemove(Number(payload.entity_id)));
     }
 
     public centerCamera(x: number, y: number) {
@@ -132,11 +132,13 @@ export class GameApp {
                         player.handleResync(x, y);
                     } else {
                         // Normal walk update - smoothly lerp
-                        // Hack: read private direction or default to 2 (down)
                         player.moveToTarget(x, y, (player as any).direction || 2);
                     }
                 } else {
+                    // Entity not spawned yet — move camera and store pending position
+                    console.warn(`[GameApp] PlayerPosition received but entity ${socket.localEntityId} not found in entityManager. Falling back to centerCamera.`);
                     this.centerCamera(x, y);
+                    this.pendingPlayerPosition = { x, y };
                 }
             } else {
                 this.centerCamera(x, y);
@@ -146,10 +148,11 @@ export class GameApp {
 
     private handleSpawnEntity(payload: any) {
         if (payload.is_local_player) {
-            let player = this.entityManager.getEntity(payload.entity_id);
+            const entityId = Number(payload.entity_id);
+            let player = this.entityManager.getEntity(entityId);
             if (!player) {
                 this.entityManager.handleSpawn({
-                    entity_id: payload.entity_id,
+                    entity_id: entityId,
                     x: payload.x,
                     y: payload.y,
                     direction: payload.direction,
@@ -173,10 +176,16 @@ export class GameApp {
                     graphic_id: "player_base",
                     body: payload.visuals.body
                 } as any);
-                player = this.entityManager.getEntity(payload.entity_id);
+                player = this.entityManager.getEntity(entityId);
             }
 
             if (player) {
+                // If a PlayerPosition arrived before the entity was spawned, apply it now
+                if (this.pendingPlayerPosition) {
+                    player.handleResync(this.pendingPlayerPosition.x, this.pendingPlayerPosition.y);
+                    this.pendingPlayerPosition = null;
+                }
+
                 // Force sync the specific visuals provided in SpawnEntity
                 const state = {
                     bodyId: payload.visuals.body,
@@ -197,6 +206,7 @@ export class GameApp {
         }
     }
 
+    private pendingPlayerPosition: { x: number; y: number } | null = null;
     private lastViewMinX: number = -9999;
     private lastViewMinY: number = -9999;
 

@@ -40,15 +40,18 @@ export class EntityManager {
   // ─── Packet handlers ──────────────────────────────────────────────
 
   handleSpawn(data: SpawnData) {
+    // Normalize entity_id to number to avoid string/number key mismatches
+    const entityId = Number(data.entity_id);
+
     // Don't spawn duplicates
-    if (this.entities.has(data.entity_id)) {
+    if (this.entities.has(entityId)) {
       // Update position of existing entity
-      const existing = this.entities.get(data.entity_id)!;
+      const existing = this.entities.get(entityId)!;
       existing.handleResync(data.x, data.y);
       return;
     }
 
-    const isLocalPlayer = data.entity_id === socket.localEntityId;
+    const isLocalPlayer = entityId === socket.localEntityId;
 
     // Determine fallback colour based on PK status
     const fallbackColor = data.is_pk ? 0xcc4444 : 0x4488cc;
@@ -63,7 +66,7 @@ export class EntityManager {
     }
 
     const entity = new EntityRenderer(this.container, {
-      entityId: data.entity_id,
+      entityId: entityId,
       name: data.name,
       graphicId: data.graphic_id || "",
       isLocalPlayer,
@@ -76,15 +79,15 @@ export class EntityManager {
     entity.handleResync(data.x, data.y);
     // Set facing direction from spawn data
     entity.moveToTarget(data.x, data.y, data.direction);
-    this.entities.set(data.entity_id, entity);
+    this.entities.set(entityId, entity);
 
     console.log(
-      `[EntityManager] Spawned entity ${data.entity_id} ("${data.name}" gfx=${data.graphic_id}) at (${data.x}, ${data.y})`
+      `[EntityManager] Spawned entity ${entityId} ("${data.name}" gfx=${data.graphic_id}) at (${data.x}, ${data.y})`
     );
   }
 
   handleMove(data: { entity_id: number; x: number; y: number; direction: number }) {
-    const entity = this.entities.get(data.entity_id);
+    const entity = this.entities.get(Number(data.entity_id));
     if (!entity) {
       // Might be an entity we haven't seen spawn yet — ignore
       return;
@@ -93,17 +96,18 @@ export class EntityManager {
   }
 
   handleRemove(entityId: number) {
-    const entity = this.entities.get(entityId);
+    const id = Number(entityId);
+    const entity = this.entities.get(id);
     if (!entity) return;
 
     entity.destroy();
-    this.entities.delete(entityId);
-    console.log(`[EntityManager] Removed entity ${entityId}`);
+    this.entities.delete(id);
+    console.log(`[EntityManager] Removed entity ${id}`);
   }
 
   /** Show a speech bubble above a specific remote entity. */
   showSpeechBubble(entityId: number, text: string) {
-    const entity = this.entities.get(entityId);
+    const entity = this.entities.get(Number(entityId));
     if (entity) {
       entity.showSpeechBubble(text);
     }
@@ -133,7 +137,7 @@ export class EntityManager {
   // ─── Utilities ─────────────────────────────────────────────────────
 
   getEntity(id: number): EntityRenderer | undefined {
-    return this.entities.get(id);
+    return this.entities.get(Number(id));
   }
 
   getAllEntities(): EntityRenderer[] {
@@ -141,7 +145,7 @@ export class EntityManager {
   }
 
   hasEntity(id: number): boolean {
-    return this.entities.has(id);
+    return this.entities.has(Number(id));
   }
 
   /** Remove all entities (e.g. on map change). */
