@@ -1,0 +1,240 @@
+syntax = "proto3";
+
+package ntk;
+
+enum Direction {
+  DIRECTION_UP = 0;
+  DIRECTION_RIGHT = 1;
+  DIRECTION_DOWN = 2;
+  DIRECTION_LEFT = 3;
+}
+
+enum EntityState {
+  ENTITY_STATE_IDLE = 0;
+  ENTITY_STATE_WALKING = 1;
+  ENTITY_STATE_ATTACKING = 2;
+  ENTITY_STATE_CASTING = 3;
+  ENTITY_STATE_DEAD = 4;
+}
+
+message Visuals {
+  int32 body = 1;
+  int32 hair = 2;
+  int32 armor = 3;
+  int32 face = 4;
+  int32 weapon = 5;
+  int32 shield = 6;
+  message Colors {
+    int32 hair = 1;
+    int32 armor = 2;
+    int32 skin = 3;
+  }
+  Colors colors = 7;
+}
+
+message SpawnEntity {
+  int32 entity_id = 1;
+  bool is_local_player = 2;
+  int32 x = 3;
+  int32 y = 4;
+  Direction direction = 5;
+  Visuals visuals = 6;
+  EntityState state = 7;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password_hash = 2;
+}
+
+message LoginSuccess {
+  int32 entity_id = 1;
+}
+
+message MoveRequest {
+  Direction direction = 1;
+}
+
+message EntityMove {
+  int32 entity_id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  Direction direction = 4;
+}
+
+message PlayerPosition {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message PlayerVitalsUpdate {
+  int32 hp = 1;
+  int32 max_hp = 2;
+  int32 mp = 3;
+  int32 max_mp = 4;
+  int32 xp = 5;
+  int32 xp_next = 6;
+  int32 gold = 7;
+  int32 level = 8;
+  int32 armor_class = 9;
+  int32 hit = 10;
+  int32 damage_modifier = 11;
+  int32 str = 12;
+  int32 dex = 13;
+  int32 int = 14;
+  int32 wis = 15;
+}
+
+message ChatRequest {
+  string message = 1;
+}
+
+message ChatNormal {
+  int32 entity_id = 1;
+  string name = 2;
+  string message = 3;
+}
+
+message DialogResponse {
+  int32 npc_id = 1;
+  int32 response = 2;
+}
+
+message MenuResponse {
+  int32 menu_id = 1;
+  int32 selected_index = 2;
+}
+
+message UseItemRequest {
+  int32 inventory_slot = 1;
+  int32 target_id = 2;
+}
+
+message RequestDropItem {
+  int32 inventory_slot = 1;
+  int32 amount = 2;
+}
+
+message CastSpell {
+  int32 spell_id = 1;
+}
+
+message MapChange {
+  int32 map_id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  repeated any objects = 4; // Simplified for this implementation
+}
+
+message SpawnCharacter {
+  int32 entity_id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  Direction direction = 4;
+  string name = 5;
+  int32 speed = 6;
+  int32 state = 7;
+  int32 sex = 8;
+  int32 face = 9;
+  int32 face_color = 10;
+  int32 hair = 11;
+  int32 hair_color = 12;
+  int32 skin_color = 13;
+  repeated int32 equipment = 14;
+  bool is_grouped = 15;
+  bool is_pk = 16;
+  int32 name_color = 17;
+  string graphic_id = 18;
+}
+
+message EntityRemove {
+  int32 entity_id = 1;
+  bool is_death = 2;
+}
+
+message DamageNumber {
+  int32 entity_id = 1;
+  int32 amount = 2;
+  string color = 3;
+}
+
+message InventoryUpdate {
+  message Item {
+    int32 slot = 1;
+    string name = 2;
+    int32 icon_id = 3;
+    int32 quantity = 4;
+  }
+  repeated Item items = 1;
+}
+
+message SpellListUpdate {
+  message Spell {
+    int32 spell_id = 1;
+    int32 icon_id = 2;
+    string name = 3;
+  }
+  repeated Spell spells = 1;
+}
+
+message PlaySound {
+  int32 sound_id = 1;
+}
+
+message PlayAnimation {
+  int32 entity_id = 2; // Using 2 to match existing logic if needed
+  int32 anim_id = 1;
+  int32 x = 3;
+  int32 y = 4;
+}
+
+message SystemMessage {
+  string message = 1;
+}
+
+message BroadcastMessage {
+  string message = 1;
+}
+
+message DialogPopup {
+  int32 npc_id = 1;
+  string name = 2;
+  string message = 3;
+}
+
+message ShowMenu {
+  int32 menu_id = 1;
+  string title = 2;
+  repeated string options = 3;
+}
+
+message GamePacket {
+  oneof payload {
+    LoginRequest login_request = 1;
+    LoginSuccess login_success = 2;
+    MoveRequest move_request = 3;
+    SpawnEntity spawn_entity = 4;
+    SpawnCharacter spawn_character = 5;
+    EntityMove entity_move = 6;
+    EntityRemove entity_remove = 7;
+    PlayerPosition player_position = 8;
+    PlayerVitalsUpdate player_vitals_update = 9;
+    ChatRequest chat_request = 10;
+    ChatNormal chat_normal = 11;
+    DialogResponse dialog_response = 12;
+    MenuResponse menu_response = 13;
+    UseItemRequest use_item_request = 14;
+    RequestDropItem request_drop_item = 15;
+    CastSpell cast_spell = 16;
+    MapChange map_change = 17;
+    InventoryUpdate inventory_update = 18;
+    SpellListUpdate spell_list_update = 19;
+    PlaySound play_sound = 20;
+    PlayAnimation play_animation = 21;
+    SystemMessage system_message = 22;
+    BroadcastMessage broadcast_message = 23;
+    DialogPopup dialog_popup = 24;
+    ShowMenu show_menu = 25;
+    DamageNumber damage_number = 26;
+  }
+}
