@@ -227,22 +227,42 @@ class AssetManager {
 
   private async saveMapToCache(mapId: string, mapData: any): Promise<void> {
     try {
-      localStorage.setItem(this.getCacheKey(mapId), JSON.stringify(mapData));
+      const cache = await caches.open('yuroxia-maps');
+      const cacheKey = this.getCacheKey(mapId);
+      const url = `${window.location.origin}/local-cache/${cacheKey}.json`;
+      const response = new Response(JSON.stringify(mapData), {
+        headers: { "Content-Type": "application/json" }
+      });
+      await cache.put(url, response);
     } catch (error) {
-      console.warn(`Could not save map ${mapId} to localStorage:`, error);
+      console.warn(`Could not save map ${mapId} to Cache API:`, error);
     }
   }
 
   async getMap(mapId: string): Promise<any> {
     const cacheKey = this.getCacheKey(mapId);
     try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        return JSON.parse(cached);
+      const cache = await caches.open('yuroxia-maps');
+      const url = `${window.location.origin}/local-cache/${cacheKey}.json`;
+      const response = await cache.match(url);
+      
+      if (response) {
+        return await response.json();
       }
-      throw new Error("Map not in cache");
+      
+      // Fallback to fetch if not in cache (should be in cache via patching, but just in case)
+      console.warn(`Map ${mapId} not found in cache, fetching...`);
+      const paddedId = String(mapId).padStart(6, '0');
+      const fetchResponse = await fetch(`${this.baseURL}tk${paddedId}.json`);
+      if (fetchResponse.ok) {
+        const mapData = await fetchResponse.json();
+        await this.saveMapToCache(mapId, mapData);
+        return mapData;
+      }
+      
+      throw new Error("Map not in cache and fetch failed");
     } catch (error) {
-      console.warn(`Map ${mapId} not in cache, will use fallback:`, error);
+      console.warn(`Map ${mapId} fallback failed:`, error);
       return this.getMockMap(mapId);
     }
   }

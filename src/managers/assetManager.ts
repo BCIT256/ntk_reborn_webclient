@@ -60,30 +60,55 @@ class AssetManagerSingleton {
         try {
             const paddedId = String(mapId).padStart(6, '0');
             const url = `http://localhost:2011/assets/maps/tk${paddedId}.json`;
-            const mapRes = await fetch(url);
+            const cacheKey = `map_v1_${mapId}`;
+            const cacheUrl = `${window.location.origin}/local-cache/${cacheKey}.json`;
+            let mapData = null;
 
-            if (mapRes.status === 404) {
-                console.warn(`Map ${mapId} not found, skipping.`);
-                this.currentMap = null;
-                return;
+            try {
+                const cache = await caches.open('yuroxia-maps');
+                const cachedRes = await cache.match(cacheUrl);
+                if (cachedRes) {
+                    mapData = await cachedRes.json();
+                }
+            } catch (err) {
+                console.warn(`Cache read failed for map ${mapId}:`, err);
             }
 
-            if (!mapRes.ok) {
-                console.error(`Failed to load map ${mapId}: HTTP ${mapRes.status}`);
-                this.currentMap = null;
-                return;
+            if (!mapData) {
+                // Fallback to fetch
+                const mapRes = await fetch(url);
+                if (mapRes.status === 404) {
+                    console.warn(`Map ${mapId} not found, skipping.`);
+                    this.currentMap = null;
+                    return;
+                }
+                if (!mapRes.ok) {
+                    console.error(`Failed to load map ${mapId}: HTTP ${mapRes.status}`);
+                    this.currentMap = null;
+                    return;
+                }
+                
+                mapData = await mapRes.json();
+                
+                // Save to cache
+                try {
+                    const cache = await caches.open('yuroxia-maps');
+                    await cache.put(cacheUrl, new Response(JSON.stringify(mapData), {
+                        headers: { "Content-Type": "application/json" }
+                    }));
+                } catch (err) {
+                    console.warn(`Failed to write map ${mapId} to cache:`, err);
+                }
             }
-
-            const data = await mapRes.json();
 
             // Validate the response looks like actual map data
-            if (!data || !data.tiles || !data.width || !data.height) {
+            if (!mapData || !mapData.tiles || !mapData.width || !mapData.height) {
                 console.error(`Map ${mapId} response is missing required fields (tiles/width/height), skipping.`);
                 this.currentMap = null;
                 return;
             }
 
-            this.currentMap = data;
+            this.currentMap = mapData;
         } catch (error) {
             console.error(`Failed to load map ${mapId}:`, error);
             this.currentMap = null;
