@@ -212,6 +212,15 @@ export class GameApp {
 
             this.entityManager.update(delta / 60);
 
+            if (socket.localEntityId) {
+                const player = this.entityManager.getEntity(socket.localEntityId);
+                if (player) {
+                    const pos = player.getPlayerPosition();
+                    this.app.stage.pivot.x = pos.x + 24; // Center on player (48/2)
+                    this.app.stage.pivot.y = pos.y + 24;
+                }
+            }
+
             // Sort entities by Y so they overlap each other correctly
             this.entityLayer.children.sort((a, b) => a.y - b.y);
 
