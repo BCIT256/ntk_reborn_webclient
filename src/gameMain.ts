@@ -212,6 +212,9 @@ export class GameApp {
 
             this.entityManager.update(delta / 60);
 
+            // Sort entities by Y so they overlap each other correctly
+            this.entityLayer.children.sort((a, b) => a.y - b.y);
+
             if (this.mapRenderer) {
                 // Hardcoded static viewport for PoC (0,0 to 30,20 tiles)
                 // In a real app this would follow the player

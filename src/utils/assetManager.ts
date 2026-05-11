@@ -126,6 +126,19 @@ class AssetManager {
     return this.spritesheets.has(graphicId);
   }
 
+  /**
+   * Resolves an entity's state into an actual texture frame.
+   * Looks through all loaded spritesheets.
+   */
+  getTextureByName(textureName: string): PIXI.Texture | null {
+    for (const spritesheet of this.spritesheets.values()) {
+      if (spritesheet.textures && spritesheet.textures[textureName]) {
+        return spritesheet.textures[textureName];
+      }
+    }
+    return null;
+  }
+
   // ─── Map-data methods (existing) ────────────────────────────────────
 
   async syncManifest(): Promise<MapManifest> {

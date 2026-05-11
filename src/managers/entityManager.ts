@@ -70,6 +70,7 @@ export class EntityManager {
       fallbackColor,
       fallbackType,
       nameColor: data.name_color,
+      visualData: data // Pass data directly
     });
 
     entity.handleResync(data.x, data.y);

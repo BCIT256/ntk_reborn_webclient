@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { assetManager } from "../utils/assetManager";
+import { EntityView, EntityVisualState } from "./EntityView";
 
 // Direction enum matching server protocol: 0=Up, 1=Right, 2=Down, 3=Left
 const DIRECTION_NAMES = ["up", "right", "down", "left"] as const;
@@ -26,21 +27,18 @@ export type FallbackType = "player" | "mob" | "npc";
 export interface EntityConfig {
   entityId: number;
   name: string;
-  /** graphic_id from SpawnCharacter.gfx — selects which spritesheet to use. */
   graphicId?: string;
-  /** If true, this is the local player entity. */
   isLocalPlayer?: boolean;
-  /** Fallback sprite colour when atlas is not used. */
   fallbackColor?: number;
-  /** What kind of fallback placeholder to use. */
   fallbackType?: FallbackType;
-  /** Tint colour for the name tag text (from SpawnCharacter.name_color). */
   nameColor?: number;
+  visualData?: any; // To pass raw spawn payload if needed
 }
 
 export class EntityRenderer {
   private container: PIXI.Container;
-  private sprite: PIXI.AnimatedSprite;
+  private sprite: PIXI.AnimatedSprite | null = null;
+  private view: EntityView;
   private nameTag: PIXI.Text;
 
   readonly entityId: number;
@@ -63,6 +61,7 @@ export class EntityRenderer {
   private TILE_SIZE: number = 32;
   private usingAtlas: boolean = false;
   private isLocalPlayer: boolean;
+  private visualData: any;
 
   // ─── Speech Bubble State ─────────────────────────────────────────
   private speechBubbleContainer: PIXI.Container | null = null;
@@ -73,10 +72,19 @@ export class EntityRenderer {
     this.entityId = config.entityId;
     this.isLocalPlayer = config.isLocalPlayer ?? false;
     this.graphicId = config.graphicId ?? (this.isLocalPlayer ? "player_base" : "mob");
+    this.visualData = config.visualData || {};
 
     this.container = new PIXI.Container();
     this.container.sortableChildren = true;
     cameraContainer.addChild(this.container);
+
+    this.view = new EntityView();
+    this.view.x = 0;
+    this.view.y = 0;
+    this.container.addChild(this.view);
+
+    // Initial state update
+    this.updateViewState();
 
     // Determine which spritesheet to use.
     const resolvedGraphicId = this.resolveGraphicId();
@@ -199,6 +207,15 @@ export class EntityRenderer {
 
     this.container.x = this.visualX;
     this.container.y = this.visualY;
+
+    // Simple frame animation (placeholder logic)
+    if (this.movementState === "walking") {
+        const time = Date.now() / 150;
+        const frame = Math.floor(time) % 4; // assuming 4 frames
+        this.updateViewState(frame);
+    } else {
+        this.updateViewState(0);
+    }
 
     // ─── Speech bubble fade-out ────────────────────────────────────
     if (this.speechBubbleFading && this.speechBubbleContainer) {
@@ -399,18 +416,33 @@ export class EntityRenderer {
     this.switchAnimation("idle", dirName);
   }
 
+  private updateViewState(frame: number = 0) {
+    const dirName = DIRECTION_NAMES[this.direction];
+    const action = this.movementState;
+    // Maps to state
+    const state: EntityVisualState = {
+      bodyId: this.visualData.body || 1,
+      faceId: this.visualData.face,
+      hairId: this.visualData.hair,
+      armorId: this.visualData.equipment?.[2], // example
+      helmetId: this.visualData.equipment?.[3],
+      shieldId: this.visualData.equipment?.[1],
+      weaponId: this.visualData.equipment?.[0],
+
+      skinColor: this.visualData.skin_color,
+      faceColor: this.visualData.face_color,
+      hairColor: this.visualData.hair_color,
+
+      direction: dirName,
+      frame: frame
+    };
+    this.view.updateState(state);
+  }
+
   private switchAnimation(action: string, directionName: string) {
-    if (!this.usingAtlas) return;
-
-    const key = `${action}_${directionName}`;
-    if (key === this.currentAnimationKey) return;
-    this.currentAnimationKey = key;
-
-    const frames = this.getFrames(action, directionName);
-    if (frames.length > 0) {
-      this.sprite.textures = frames;
-      this.sprite.gotoAndPlay(0);
-    }
+    if (this.currentAnimationKey === `${action}_${directionName}`) return;
+    this.currentAnimationKey = `${action}_${directionName}`;
+    this.updateViewState(0);
   }
 
   // ─── Spritesheet helpers ────────────────────────────────────────────
