@@ -22,6 +22,7 @@ class AssetManagerSingleton {
     
     public loadedEpfs: Set<string> = new Set();
     public epfFrames: Map<string, any[]> = new Map();
+    public epfSheets: Map<string, PIXI.Spritesheet> = new Map();
 
     public async loadEpfAsset(layer: string, id: number): Promise<void> {
         const epfKey = `${layer}_${id}`;
@@ -33,6 +34,7 @@ class AssetManagerSingleton {
             const sheet = await PIXI.Assets.load(url);
             if (sheet && sheet.data && sheet.data.frames) {
                 this.epfFrames.set(epfKey, sheet.data.frames);
+                this.epfSheets.set(epfKey, sheet);
             } else {
                 // Manually fetch if Assets.load didn't parse it as a spritesheet
                 const res = await fetch(url);
@@ -44,6 +46,15 @@ class AssetManagerSingleton {
         } catch (error) {
             console.error(`Error loading EPF ${epfKey}:`, error);
         }
+    }
+
+    public getTexture(layer: string, id: number, textureName: string): PIXI.Texture | null {
+        const epfKey = `${layer}_${id}`;
+        const sheet = this.epfSheets.get(epfKey);
+        if (sheet && sheet.textures) {
+            return sheet.textures[textureName] || null;
+        }
+        return null;
     }
 
     public async fetchAssets() {

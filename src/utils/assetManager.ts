@@ -44,68 +44,22 @@ class AssetManager {
    * Assumes atlas frames are named like "tile_15.png".
    */
   getTileTexture(tileId: number): PIXI.Texture | null {
-    const tileset = this.spritesheets.get("tileset");
-    if (!tileset || !tileset.textures) return null;
-    const frameName = `tile_${tileId}.png`;
-    return tileset.textures[frameName] || null;
+    return null;
   }
 
-  /**
-   * Return an ordered array of textures for a player animation.
-   * action = "walk" | "idle",  direction = "up" | "right" | "down" | "left"
-   * Scans for sequentially numbered frames: player_walk_down_1.png, player_walk_down_2.png, …
-   */
   getPlayerFrames(action: string, direction: string): PIXI.Texture[] {
-    const spritesheet = this.spritesheets.get("player_base");
-    if (!spritesheet || !spritesheet.textures) return [];
-
-    const frames: PIXI.Texture[] = [];
-    let i = 1;
-    while (true) {
-      const frameName = `player_${action}_${direction}_${i}.png`;
-      const texture = spritesheet.textures[frameName];
-      if (!texture) break;
-      frames.push(texture);
-      i++;
-    }
-    return frames;
+    return [];
   }
 
-  /**
-   * Return an ordered array of textures for an entity animation by graphic_id.
-   * graphic_id examples: "player_base", "mob_slime", "npc_merchant"
-   * action = "walk" | "idle",  direction = "up" | "right" | "down" | "left"
-   * Scans for sequentially numbered frames: {graphicId}_{action}_{direction}_{i}.png
-   * Falls back to "player_base" sheet if graphic_id not found.
-   */
   getEntityFrames(graphicId: string, action: string, direction: string): PIXI.Texture[] {
-    // Try the requested graphic_id first
-    let spritesheet = this.spritesheets.get(graphicId);
-
-    // Fallback to player_base if the specific graphic isn't loaded
-    if (!spritesheet) {
-      spritesheet = this.spritesheets.get("player_base");
-    }
-
-    if (!spritesheet || !spritesheet.textures) return [];
-
-    const frames: PIXI.Texture[] = [];
-    let i = 1;
-    while (true) {
-      const frameName = `${graphicId}_${action}_${direction}_${i}.png`;
-      const texture = spritesheet.textures[frameName];
-      if (!texture) break;
-      frames.push(texture);
-      i++;
-    }
-    return frames;
+    return [];
   }
 
   /**
    * Check if a spritesheet exists for a given graphic_id.
    */
   hasEntitySpritesheet(graphicId: string): boolean {
-    return this.spritesheets.has(graphicId);
+    return false;
   }
 
   /**

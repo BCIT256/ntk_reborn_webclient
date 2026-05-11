@@ -395,7 +395,7 @@ export class EntityRenderer {
       return this.graphicId;
     }
 
-    if (this.isLocalPlayer && assetManager.hasSpritesheet("player_base")) {
+    if (this.isLocalPlayer) {
       return "player_base";
     }
 

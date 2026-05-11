@@ -34,7 +34,7 @@ export class ChunkedMapRenderer {
     }
 
     public updateVisibleChunks(viewMinX: number, viewMinY: number, viewMaxX: number, viewMaxY: number) {
-        if (!this.mapData.tiles || !this.mapData.width || !this.mapData.height) return;
+        if (!this.mapData.tiles) return;
 
         // Calculate the chunk bounds with a 1-chunk margin
         const startCX = Math.floor(viewMinX / CHUNK_SIZE) - 1;
@@ -44,10 +44,13 @@ export class ChunkedMapRenderer {
 
         const currentVisibleKeys = new Set<string>();
 
+        const width = this.mapData.width || Math.sqrt(this.mapData.tiles?.length || 10000) || 100;
+        const height = this.mapData.height || Math.sqrt(this.mapData.tiles?.length || 10000) || 100;
+
         // Create new chunks that came into view
         for (let cy = startCY; cy <= endCY; cy++) {
             for (let cx = startCX; cx <= endCX; cx++) {
-                if (cx < 0 || cy < 0 || cx * CHUNK_SIZE >= this.mapData.width || cy * CHUNK_SIZE >= this.mapData.height) {
+                if (cx < 0 || cy < 0 || cx * CHUNK_SIZE >= width || cy * CHUNK_SIZE >= height) {
                     continue; // Chunk is out of map bounds
                 }
 
@@ -91,12 +94,14 @@ export class ChunkedMapRenderer {
         const startX = cx * CHUNK_SIZE;
         const startY = cy * CHUNK_SIZE;
         
-        const endX = Math.min(startX + CHUNK_SIZE, this.mapData.width);
-        const endY = Math.min(startY + CHUNK_SIZE, this.mapData.height);
+        const width = this.mapData.width || Math.sqrt(this.mapData.tiles.length) || 100;
+        const height = this.mapData.height || Math.sqrt(this.mapData.tiles.length) || 100;
+        const endX = Math.min(startX + CHUNK_SIZE, width);
+        const endY = Math.min(startY + CHUNK_SIZE, height);
 
         for (let y = startY; y < endY; y++) {
             for (let x = startX; x < endX; x++) {
-                const index = y * this.mapData.width + x;
+                const index = y * width + x;
                 const tileData = this.mapData.tiles ? this.mapData.tiles[index] : undefined;
                 
                 if (tileData === undefined || tileData === null) continue;

@@ -87,7 +87,7 @@ export class EntityView extends PIXI.Container {
         await AssetManager.loadEpfAsset(layerName, id);
 
         const textureName = this.getTextureName(layerName, id, direction, frame);
-        const texture = this.resolveTexture(textureName);
+        const texture = AssetManager.getTexture(layerName, id, textureName) || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
 
         if (texture) {
             sprite.texture = texture;
@@ -115,9 +115,5 @@ export class EntityView extends PIXI.Container {
 
     private getTextureName(layerName: string, id: number, direction: string, frame: number): string {
         return `${layerName}_${id}_${direction}_${frame}.png`;
-    }
-
-    private resolveTexture(textureName: string): PIXI.Texture | null {
-        return assetManager.getTextureByName(textureName) || assetManager.getTextureByName(textureName.replace('.png', ''));
     }
 }
