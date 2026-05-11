@@ -59,11 +59,11 @@ export function createTileSprite(tileIndex: number, tileX: number, tileY: number
         }
     }
     
-    const animRanges: [number, number][] = paletteInfo
+    const animRanges: [number, number][] = paletteInfo 
         ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
         : [];
 
-    const masterPaletteHeight = AssetManager.paletteTexture ? AssetManager.paletteTexture.height : 1024;
+    const masterPaletteHeight = 1024;
     const normalizedRow = (paletteIndex + 0.5) / masterPaletteHeight;
 
     const cacheKey = `${atlas_id}_${x}_${y}_${width}_${height}_${paletteIndex}`;

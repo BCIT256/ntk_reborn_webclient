@@ -103,7 +103,7 @@ export class ChunkedMapRenderer {
 
                 // Support both {ab: 1} and flat number 1
                 const ab = typeof tileData === 'number' ? tileData : (tileData as any).ab;
-                let sobj = typeof tileData === 'number' ? -1 : ((tileData as any).sobj !== undefined ? (tileData as any).sobj : -1);
+                let sobj = typeof tileData === 'number' ? 0 : ((tileData as any).sobj || 0);
 
                 // If the map uses a separate static_objects array and we have it, override sobj
                 if ((this.mapData as any).static_objects && (this.mapData as any).static_objects[index] !== undefined) {
@@ -118,7 +118,7 @@ export class ChunkedMapRenderer {
                     }
                 }
 
-                if (sobj >= 0) {
+                if (sobj > 0) {
                     const objContainer = createSObjContainer(sobj, x, y);
                     if (objContainer) {
                         // Strict Y-sorting constraint: zIndex MUST map to tileY

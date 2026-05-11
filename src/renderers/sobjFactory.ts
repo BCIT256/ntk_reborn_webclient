@@ -64,7 +64,7 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
             ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
             : [];
 
-        const masterPaletteHeight = AssetManager.paletteTexture ? AssetManager.paletteTexture.height : 1024;
+        const masterPaletteHeight = 1024;
         const normalizedRow = (combinedIndex + 0.5) / masterPaletteHeight;
 
         const cacheKey = `${atlas_id}_${frameX}_${frameY}_${width}_${height}_${combinedIndex}`;
