@@ -26,6 +26,10 @@ export interface EntityVisualState {
     frame?: number;
 }
 
+// "Standing facing down" is typically frame index 12 in the EPF sprite layout.
+// Fallback candidates if 12 doesn't exist.
+const STANDING_FRAME_CANDIDATES = [12, 16, 0];
+
 export class EntityView extends PIXI.Container {
     private shadowGraphics: PIXI.Graphics;
     private mountSprite: PIXI.Sprite;
@@ -52,13 +56,12 @@ export class EntityView extends PIXI.Container {
 
         // Procedurally generated shadow
         this.shadowGraphics = new PIXI.Graphics();
-        this.shadowGraphics.beginFill(0x000000); // Pure black
-        this.shadowGraphics.drawEllipse(0, 0, 14, 7); // Width 14, Height 7 (Isometric proportions)
+        this.shadowGraphics.beginFill(0x000000);
+        this.shadowGraphics.drawEllipse(0, 0, 14, 7);
         this.shadowGraphics.endFill();
-        this.shadowGraphics.alpha = 0.4; // 40% opacity so you can see the ground through it
+        this.shadowGraphics.alpha = 0.4;
         this.shadowGraphics.zIndex = 0;
-        // Offset the shadow to sit perfectly at the character's feet.
-        this.shadowGraphics.y = 0; // Our sprites are anchored at 1.0 (bottom), so y=0 is feet level.
+        this.shadowGraphics.y = 0;
         this.addChild(this.shadowGraphics);
 
         // mount, body, face, hair, armor, shield, weapon, helmet
@@ -80,11 +83,12 @@ export class EntityView extends PIXI.Container {
         return sprite;
     }
 
-    public async updateState(state: EntityVisualState) {
+    /**
+     * Updates all character layers. Returns true if the body loaded successfully.
+     */
+    public async updateState(state: EntityVisualState): Promise<boolean> {
         const dir = state.direction || "down";
         const frame = state.frame || 0;
-
-        let hasError = false;
 
         const results = await Promise.allSettled([
             this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
@@ -97,13 +101,10 @@ export class EntityView extends PIXI.Container {
             this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
         ]);
         
-        // If the body failed to load, we consider the whole entity broken and show debug placeholder
-        if (results[1].status === "rejected") {
-            hasError = true;
-        }
-
-        // Explicitly hide fallback box when body loaded successfully
-        this.debugPlaceholder.visible = hasError;
+        // Body is results[1]. If body loaded, hide the fallback no matter what.
+        const bodyLoaded = results[1].status === "fulfilled";
+        this.debugPlaceholder.visible = !bodyLoaded;
+        return bodyLoaded;
     }
 
     private async updateLayer(sprite: PIXI.Sprite, layerName: string, id: number | undefined, direction: string, frame: number, colorIndex: number = 0) {
@@ -119,38 +120,42 @@ export class EntityView extends PIXI.Container {
             throw error;
         }
 
-        // Try exact frame name first, then without .png suffix
-        const textureName = this.getTextureName(layerName, id, direction, frame);
-        let loadedTexture = AssetManager.getTexture(layerName, id, textureName)
-            || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
+        const epfKey = `${layerName}_${id}`;
+        const sheet = AssetManager.epfSheets.get(epfKey);
 
-        // If exact frame not found, grab the first available texture from the spritesheet
-        if (!loadedTexture) {
-            const epfKey = `${layerName}_${id}`;
-            const sheet = AssetManager.epfSheets.get(epfKey);
-            if (sheet && sheet.textures) {
-                const keys = Object.keys(sheet.textures);
-                if (keys.length > 0) {
-                    loadedTexture = sheet.textures[keys[0]];
-                }
-            }
+        if (!sheet || !sheet.textures) {
+            sprite.visible = false;
+            return;
         }
 
-        if (loadedTexture) {
-            sprite.texture = loadedTexture;
+        // Resolve the frame key and texture
+        const { texture, frameData } = this.resolveFrame(sheet, epfKey, frame);
+
+        if (texture) {
+            sprite.texture = texture;
             sprite.visible = true;
 
+            // Apply ox/oy offsets from the raw spritesheet JSON data
+            if (frameData) {
+                sprite.x = frameData.ox ?? 0;
+                sprite.y = frameData.oy ?? 0;
+            } else {
+                sprite.x = 0;
+                sprite.y = 0;
+            }
+
+            // Palette coloring
             if (colorIndex > 0 && AssetManager.paletteTexture && AssetManager.paletteMeta) {
                 const paletteHeight = AssetManager.paletteTexture.height > 1 ? AssetManager.paletteTexture.height : 1024;
                 const normalizedRow = (colorIndex + 0.5) / paletteHeight;
 
                 if (!sprite.filters || sprite.filters.length === 0) {
                     const palTex = new PIXI.Texture(AssetManager.paletteTexture);
-                    sprite.filters = [createPaletteFilter(loadedTexture, palTex, normalizedRow, [])];
+                    sprite.filters = [createPaletteFilter(texture, palTex, normalizedRow, [])];
                 } else {
                     const filter = sprite.filters[0] as any;
                     filter.uniforms.uPaletteRow = normalizedRow;
-                    filter.uniforms.uMaskSampler = loadedTexture;
+                    filter.uniforms.uMaskSampler = texture;
                 }
             } else {
                 sprite.filters = null;
@@ -160,7 +165,52 @@ export class EntityView extends PIXI.Container {
         }
     }
 
-    private getTextureName(layerName: string, id: number, direction: string, frame: number): string {
-        return `${layerName}_${id}_${direction}_${frame}.png`;
+    /**
+     * Resolves the best texture frame from a spritesheet.
+     * 
+     * Frame keys in the EPF spritesheets are formatted as `{layer}_{id}_{index}`
+     * (e.g. `body_1_12`). We first try the exact requested frame index,
+     * then fall back to known "standing" frame candidates (12, 16, 0).
+     * 
+     * Returns both the PIXI.Texture and the raw frame data (which contains ox/oy offsets).
+     */
+    private resolveFrame(
+        sheet: PIXI.Spritesheet,
+        epfKey: string,
+        requestedFrame: number
+    ): { texture: PIXI.Texture | null; frameData: any } {
+        const rawFrames = sheet.data?.frames as Record<string, any> | undefined;
+
+        // Try the exact requested frame first
+        const exactKey = `${epfKey}_${requestedFrame}`;
+        if (sheet.textures[exactKey]) {
+            return {
+                texture: sheet.textures[exactKey],
+                frameData: rawFrames?.[exactKey] ?? null
+            };
+        }
+
+        // Try known standing-frame candidates
+        for (const candidate of STANDING_FRAME_CANDIDATES) {
+            const candidateKey = `${epfKey}_${candidate}`;
+            if (sheet.textures[candidateKey]) {
+                return {
+                    texture: sheet.textures[candidateKey],
+                    frameData: rawFrames?.[candidateKey] ?? null
+                };
+            }
+        }
+
+        // Last resort: grab the first available texture
+        const allKeys = Object.keys(sheet.textures);
+        if (allKeys.length > 0) {
+            const firstKey = allKeys[0];
+            return {
+                texture: sheet.textures[firstKey],
+                frameData: rawFrames?.[firstKey] ?? null
+            };
+        }
+
+        return { texture: null, frameData: null };
     }
 }

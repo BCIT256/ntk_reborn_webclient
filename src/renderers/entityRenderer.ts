@@ -436,7 +436,12 @@ export class EntityRenderer {
       direction: dirName,
       frame: frame
     };
-    this.view.updateState(state);
+    this.view.updateState(state).then((bodyLoaded) => {
+      // Once the real character layers load, hide the fallback sprite
+      if (bodyLoaded && this.sprite) {
+        this.sprite.visible = false;
+      }
+    });
   }
 
   public updateViewStateForce(state: EntityVisualState) {
@@ -454,7 +459,11 @@ export class EntityRenderer {
     this.visualData.face_color = state.faceColor;
     this.visualData.hair_color = state.hairColor;
 
-    this.view.updateState(state);
+    this.view.updateState(state).then((bodyLoaded) => {
+      if (bodyLoaded && this.sprite) {
+        this.sprite.visible = false;
+      }
+    });
   }
 
   private switchAnimation(action: string, directionName: string) {
