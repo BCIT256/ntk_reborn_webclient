@@ -41,6 +41,7 @@ export interface GameEvents {
     name_color: number;
     graphic_id: string;
   };
+  SpawnEntity: any;
   EntityMove: { entity_id: number; x: number; y: number; direction: number };
   EntityRemove: { entity_id: number; is_death: boolean };
 
