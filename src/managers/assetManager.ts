@@ -118,6 +118,7 @@ class AssetManagerSingleton {
                     const baseTex = PIXI.BaseTexture.from(objectUrl, {
                         scaleMode: PIXI.SCALE_MODES.NEAREST
                     });
+                    baseTex.scaleMode = PIXI.SCALE_MODES.NEAREST;
                     if (baseTex.valid) {
                         URL.revokeObjectURL(objectUrl);
                         console.log(`Loaded texture: ${url}`);
