@@ -23,6 +23,8 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
   const [stats, setStats] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
+    let highestProgress = 0;
+
     const startPatching = async () => {
       try {
         await assetManager.init();
@@ -34,10 +36,13 @@ const MapLoadingScreen: React.FC<MapLoadingScreenProps> = ({ onComplete }) => {
         setStatus("Downloading Map Assets...");
         await assetManager.downloadMissingMaps((current, total) => {
           setStats({ current, total });
-          setProgress(Math.floor((current / total) * 100));
+          const calculated = Math.floor((current / total) * 100);
+          highestProgress = Math.max(highestProgress, calculated);
+          setProgress(highestProgress);
         });
 
         setStatus("Patching Complete!");
+        setProgress(100);
         setTimeout(onComplete, 500);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unknown error occurred during patching");

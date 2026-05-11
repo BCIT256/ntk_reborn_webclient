@@ -285,23 +285,22 @@ export class GameApp {
 
             this.entityManager.update(delta / 60);
 
-            // Sync render to logic position for all entities
+            // Sync render to logic position for all entities (floor to prevent sub-pixel gaps)
             const activeEntities = this.entityManager.getAllEntities();
             for (const entity of activeEntities) {
                 const pos = entity.getPlayerPosition();
                 const container = entity.getContainer();
-                container.x = pos.x;
-                container.y = pos.y;
+                container.x = Math.floor(pos.x);
+                container.y = Math.floor(pos.y);
             }
 
+            // Camera tracks the local player, floored to prevent sub-pixel tile streaks
             if (socket.localEntityId) {
                 const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
                     const pos = player.getPlayerPosition();
-                    const targetX = pos.x + 24;
-                    const targetY = pos.y + 24;
-                    this.app.stage.pivot.x = targetX;
-                    this.app.stage.pivot.y = targetY;
+                    this.app.stage.pivot.x = Math.floor(pos.x + 24);
+                    this.app.stage.pivot.y = Math.floor(pos.y + 24);
                 }
             }
 

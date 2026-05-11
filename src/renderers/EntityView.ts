@@ -102,6 +102,7 @@ export class EntityView extends PIXI.Container {
             hasError = true;
         }
 
+        // Explicitly hide fallback box when body loaded successfully
         this.debugPlaceholder.visible = hasError;
     }
 
@@ -118,8 +119,22 @@ export class EntityView extends PIXI.Container {
             throw error;
         }
 
+        // Try exact frame name first, then without .png suffix
         const textureName = this.getTextureName(layerName, id, direction, frame);
-        const loadedTexture = AssetManager.getTexture(layerName, id, textureName) || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
+        let loadedTexture = AssetManager.getTexture(layerName, id, textureName)
+            || AssetManager.getTexture(layerName, id, textureName.replace('.png', ''));
+
+        // If exact frame not found, grab the first available texture from the spritesheet
+        if (!loadedTexture) {
+            const epfKey = `${layerName}_${id}`;
+            const sheet = AssetManager.epfSheets.get(epfKey);
+            if (sheet && sheet.textures) {
+                const keys = Object.keys(sheet.textures);
+                if (keys.length > 0) {
+                    loadedTexture = sheet.textures[keys[0]];
+                }
+            }
+        }
 
         if (loadedTexture) {
             sprite.texture = loadedTexture;
