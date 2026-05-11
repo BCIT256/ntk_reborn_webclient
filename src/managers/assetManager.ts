@@ -19,6 +19,32 @@ class AssetManagerSingleton {
     public tilecMasks: PIXI.BaseTexture[] = [];
     
     public paletteTexture: PIXI.BaseTexture | null = null;
+    
+    public loadedEpfs: Set<string> = new Set();
+    public epfFrames: Map<string, any[]> = new Map();
+
+    public async loadEpfAsset(layer: string, id: number): Promise<void> {
+        const epfKey = `${layer}_${id}`;
+        if (this.loadedEpfs.has(epfKey)) return;
+        this.loadedEpfs.add(epfKey);
+
+        try {
+            const url = `http://localhost:2011/assets/sprites/${layer}_${id}.json`;
+            const sheet = await PIXI.Assets.load(url);
+            if (sheet && sheet.data && sheet.data.frames) {
+                this.epfFrames.set(epfKey, sheet.data.frames);
+            } else {
+                // Manually fetch if Assets.load didn't parse it as a spritesheet
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    this.epfFrames.set(epfKey, data.frames || []);
+                }
+            }
+        } catch (error) {
+            console.error(`Error loading EPF ${epfKey}:`, error);
+        }
+    }
 
     public async fetchAssets() {
         await caches.delete('yuroxia-maps');

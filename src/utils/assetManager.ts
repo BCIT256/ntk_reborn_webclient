@@ -31,26 +31,8 @@ class AssetManager {
     if (this.spritesheetsLoaded) return;
     this.spritesheetsLoaded = true;
 
-    const spritesheetConfigs = [
-      { key: "tileset", path: "http://localhost:2011/assets/sprites/tileset.json" },
-      { key: "player_base", path: "http://localhost:2011/assets/sprites/player_base.json" },
-    ];
-
-    for (const { key, path } of spritesheetConfigs) {
-      try {
-        const spritesheet = await PIXI.Assets.load(path) as PIXI.Spritesheet | undefined;
-        if (spritesheet && spritesheet.textures && Object.keys(spritesheet.textures).length > 0) {
-          this.spritesheets.set(key, spritesheet);
-          console.log(
-            `Loaded spritesheet: ${key} (${Object.keys(spritesheet.textures).length} textures)`
-          );
-        } else {
-          console.warn(`Spritesheet ${key} loaded but has no textures or returned an empty object. This is a placeholder warning and won't crash the loader.`);
-        }
-      } catch (error) {
-        console.warn(`Failed to load spritesheet ${key} from ${path}:`, error);
-      }
-    }
+    // Legacy monolithic spritesheets have been removed. 
+    // Character layers are now loaded dynamically via EPF JSONs.
   }
 
   hasSpritesheet(key: string): boolean {

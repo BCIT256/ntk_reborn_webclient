@@ -61,26 +61,30 @@ export class EntityView extends PIXI.Container {
         return sprite;
     }
 
-    public updateState(state: EntityVisualState) {
+    public async updateState(state: EntityVisualState) {
         const dir = state.direction || "down";
         const frame = state.frame || 0;
 
-        this.updateLayer(this.shadowSprite, "shadow", 1, dir, frame, 0); // Shadows usually don't have color
-        this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor);
-        this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor);
-        this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor);
-        this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor);
-        this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor);
-        this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor);
-        this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor);
-        this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor);
+        await Promise.all([
+            this.updateLayer(this.shadowSprite, "shadow", 1, dir, frame, 0),
+            this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
+            this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor),
+            this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor),
+            this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor),
+            this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor),
+            this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor),
+            this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor),
+            this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
+        ]);
     }
 
-    private updateLayer(sprite: PIXI.Sprite, layerName: string, id: number | undefined, direction: string, frame: number, colorIndex: number = 0) {
+    private async updateLayer(sprite: PIXI.Sprite, layerName: string, id: number | undefined, direction: string, frame: number, colorIndex: number = 0) {
         if (!id || id === 0) {
             sprite.visible = false;
             return;
         }
+
+        await AssetManager.loadEpfAsset(layerName, id);
 
         const textureName = this.getTextureName(layerName, id, direction, frame);
         const texture = this.resolveTexture(textureName);

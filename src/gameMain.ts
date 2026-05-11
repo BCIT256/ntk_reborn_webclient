@@ -216,7 +216,7 @@ export class GameApp {
                 const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
                     const pos = player.getPlayerPosition();
-                    this.app.stage.pivot.x = pos.x + 24; // Center on player (48/2)
+                    this.app.stage.pivot.x = pos.x + 24; // Center on player (48/2 offset)
                     this.app.stage.pivot.y = pos.y + 24;
                 }
             }

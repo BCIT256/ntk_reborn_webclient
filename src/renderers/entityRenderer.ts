@@ -58,7 +58,7 @@ export class EntityRenderer {
   // Cached animation frame arrays keyed by "action_direction"
   private animationCache: Map<string, PIXI.Texture[]> = new Map();
 
-  private TILE_SIZE: number = 32;
+  private TILE_SIZE: number = 48;
   private usingAtlas: boolean = false;
   private isLocalPlayer: boolean;
   private visualData: any;
