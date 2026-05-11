@@ -27,7 +27,7 @@ export interface EntityVisualState {
 }
 
 export class EntityView extends PIXI.Container {
-    private shadowSprite: PIXI.Sprite;
+    private shadowGraphics: PIXI.Graphics;
     private mountSprite: PIXI.Sprite;
     private bodySprite: PIXI.Sprite;
     private faceSprite: PIXI.Sprite;
@@ -50,8 +50,18 @@ export class EntityView extends PIXI.Container {
         this.debugPlaceholder.visible = false;
         this.addChild(this.debugPlaceholder);
 
-        // shadow, mount, body, face, hair, armor, shield, weapon, helmet
-        this.shadowSprite = this.createSprite(0);
+        // Procedurally generated shadow
+        this.shadowGraphics = new PIXI.Graphics();
+        this.shadowGraphics.beginFill(0x000000); // Pure black
+        this.shadowGraphics.drawEllipse(0, 0, 14, 7); // Width 14, Height 7 (Isometric proportions)
+        this.shadowGraphics.endFill();
+        this.shadowGraphics.alpha = 0.4; // 40% opacity so you can see the ground through it
+        this.shadowGraphics.zIndex = 0;
+        // Offset the shadow to sit perfectly at the character's feet.
+        this.shadowGraphics.y = 0; // Our sprites are anchored at 1.0 (bottom), so y=0 is feet level.
+        this.addChild(this.shadowGraphics);
+
+        // mount, body, face, hair, armor, shield, weapon, helmet
         this.mountSprite = this.createSprite(1);
         this.bodySprite = this.createSprite(2);
         this.faceSprite = this.createSprite(3);
@@ -76,19 +86,19 @@ export class EntityView extends PIXI.Container {
 
         let hasError = false;
 
-        try {
-            await Promise.all([
-                this.updateLayer(this.shadowSprite, "shadow", 1, dir, frame, 0),
-                this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
-                this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor),
-                this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor),
-                this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor),
-                this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor),
-                this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor),
-                this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor),
-                this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
-            ]);
-        } catch (e) {
+        const results = await Promise.allSettled([
+            this.updateLayer(this.mountSprite, "mount", state.mountId, dir, frame, state.mountColor),
+            this.updateLayer(this.bodySprite, "body", state.bodyId, dir, frame, state.skinColor),
+            this.updateLayer(this.faceSprite, "face", state.faceId, dir, frame, state.faceColor || state.skinColor),
+            this.updateLayer(this.hairSprite, "hair", state.hairId, dir, frame, state.hairColor),
+            this.updateLayer(this.armorSprite, "armor", state.armorId, dir, frame, state.armorColor),
+            this.updateLayer(this.shieldSprite, "shield", state.shieldId, dir, frame, state.shieldColor),
+            this.updateLayer(this.weaponSprite, "weapon", state.weaponId, dir, frame, state.weaponColor),
+            this.updateLayer(this.helmetSprite, "helmet", state.helmetId, dir, frame, state.helmetColor)
+        ]);
+        
+        // If the body failed to load, we consider the whole entity broken and show debug placeholder
+        if (results[1].status === "rejected") {
             hasError = true;
         }
 
