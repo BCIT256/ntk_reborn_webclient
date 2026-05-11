@@ -64,13 +64,19 @@ export function createSObjContainer(sobjIndex: number, x: number, y: number): PI
             ? paletteInfo.animation_ranges.map((r: any) => [r.min_index, r.max_index])
             : [];
 
-        const masterPaletteHeight = AssetManager.paletteTexture ? AssetManager.paletteTexture.height : 1024;
+        let masterPaletteHeight = AssetManager.paletteTexture ? AssetManager.paletteTexture.height : 1024;
+        if (masterPaletteHeight <= 1) {
+            masterPaletteHeight = 1024;
+            console.warn("Palette texture height is invalid (not loaded yet). Using fallback.");
+        }
         const normalizedRow = (combinedIndex + 0.5) / masterPaletteHeight;
 
         const cacheKey = `${atlas_id}_${frameX}_${frameY}_${width}_${height}_${combinedIndex}`;
         let bakedTexture = bakedSobjCache.get(cacheKey);
 
         if (!bakedTexture && gameApp) {
+            const isTextureValid = AssetManager.paletteTexture ? AssetManager.paletteTexture.valid : false;
+            console.log(`Baking sobj texture. paletteTexture valid: ${isTextureValid}`);
             const filter = createPaletteFilter(maskTexture, paletteTexture, normalizedRow, animRanges);
             const tempSprite = new PIXI.Sprite(indexTexture);
             tempSprite.filters = [filter];
