@@ -5,6 +5,7 @@ import { eventBus } from "./utils/eventBus";
 
 /** Event types that must be buffered until GameApp flushes them. */
 const BUFFERED_EVENT_TYPES = new Set<string>([
+  "SpawnEntity",
   "SpawnCharacter",
   "EntityMove",
   "EntityRemove",
@@ -108,6 +109,9 @@ class GameSocket {
     // Always emit immediately for any listeners that are already subscribed
     // (e.g., React components like BottomHUD for SystemMessage)
     switch (packet.type) {
+      case "SpawnEntity":
+        eventBus.emit("SpawnEntity", packet.payload);
+        break;
       case "MapChange":
         if (packet.payload.objects) {
           packet.payload.objects.forEach((obj: any) => {
@@ -185,6 +189,9 @@ class GameSocket {
     console.log(`[Socket] Flushing ${this.eventBuffer.length} buffered events to eventBus`);
     for (const packet of this.eventBuffer) {
       switch (packet.type) {
+        case "SpawnEntity":
+          eventBus.emit("SpawnEntity", packet.payload);
+          break;
         case "SpawnCharacter":
           eventBus.emit("SpawnCharacter", packet.payload);
           break;

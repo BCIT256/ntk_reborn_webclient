@@ -439,6 +439,24 @@ export class EntityRenderer {
     this.view.updateState(state);
   }
 
+  public updateViewStateForce(state: EntityVisualState) {
+    // Update the underlying visualData mapping so subsequent updates persist the forced state
+    this.visualData.body = state.bodyId;
+    this.visualData.face = state.faceId;
+    this.visualData.hair = state.hairId;
+    this.visualData.equipment = this.visualData.equipment || [];
+    this.visualData.equipment[0] = state.weaponId;
+    this.visualData.equipment[1] = state.shieldId;
+    this.visualData.equipment[2] = state.armorId;
+    this.visualData.equipment[3] = state.helmetId;
+    
+    this.visualData.skin_color = state.skinColor;
+    this.visualData.face_color = state.faceColor;
+    this.visualData.hair_color = state.hairColor;
+
+    this.view.updateState(state);
+  }
+
   private switchAnimation(action: string, directionName: string) {
     if (this.currentAnimationKey === `${action}_${directionName}`) return;
     this.currentAnimationKey = `${action}_${directionName}`;

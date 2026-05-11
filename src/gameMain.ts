@@ -21,6 +21,7 @@ export class GameApp {
     private lastAnimTime: number = 0;
     private unsubscribeMapChange: () => void;
     private unsubscribePlayerPosition: () => void;
+    private unsubscribeSpawnEntity: () => void;
     private unsubscribeSpawn: () => void;
     private unsubscribeEntityMove: () => void;
     private unsubscribeEntityRemove: () => void;
@@ -56,6 +57,7 @@ export class GameApp {
         this.unsubscribePlayerPosition = eventBus.on("PlayerPosition", this.handlePlayerPosition.bind(this));
         
         // Entity events
+        this.unsubscribeSpawnEntity = eventBus.on("SpawnEntity", (payload) => this.handleSpawnEntity(payload));
         this.unsubscribeSpawn = eventBus.on("SpawnCharacter", (payload) => this.entityManager.handleSpawn(payload));
         this.unsubscribeEntityMove = eventBus.on("EntityMove", (payload) => this.entityManager.handleMove(payload));
         this.unsubscribeEntityRemove = eventBus.on("EntityRemove", (payload) => this.entityManager.handleRemove(payload.entity_id));
@@ -119,35 +121,63 @@ export class GameApp {
         if (x !== undefined && y !== undefined) {
             this.centerCamera(x, y);
             if (socket.localEntityId) {
-                let player = this.entityManager.getEntity(socket.localEntityId);
-                
-                // If local player doesn't exist yet, force spawn them with default visuals
-                if (!player) {
-                    this.entityManager.handleSpawn({
-                        entity_id: socket.localEntityId,
-                        x, y, direction: 2, name: "Player", name_color: 0xffffff,
-                        speed: 200, state: 0, sex: 1, face: 1, face_color: 0, hair: 1,
-                        hair_color: 0, skin_color: 0, equipment: [], is_grouped: false,
-                        is_pk: false, graphic_id: "player_base",
-                        body: 1
-                    } as any);
-                    player = this.entityManager.getEntity(socket.localEntityId);
-                } else {
-                    // Force a default visual state if missing
-                    const visualData = (player as any).visualData || {};
-                    if (!visualData.body && !visualData.face && !visualData.hair) {
-                        visualData.body = 1;
-                        visualData.face = 1;
-                        visualData.hair = 1;
-                        (player as any).visualData = visualData;
-                        // Trigger an update
-                        (player as any).updateViewState();
-                    }
-                }
-
+                const player = this.entityManager.getEntity(socket.localEntityId);
                 if (player) {
                     player.handleResync(x, y);
                 }
+            }
+        }
+    }
+
+    private handleSpawnEntity(payload: any) {
+        if (payload.is_local_player) {
+            let player = this.entityManager.getEntity(payload.entity_id);
+            if (!player) {
+                this.entityManager.handleSpawn({
+                    entity_id: payload.entity_id,
+                    x: payload.x,
+                    y: payload.y,
+                    direction: payload.direction,
+                    name: "Player",
+                    name_color: 0xffffff,
+                    speed: 200,
+                    state: 0,
+                    sex: 1,
+                    face: payload.visuals.face,
+                    face_color: payload.visuals.colors.skin, // Mapping skin to face_color if needed
+                    hair: payload.visuals.hair,
+                    hair_color: payload.visuals.colors.hair,
+                    skin_color: payload.visuals.colors.skin,
+                    equipment: [
+                        payload.visuals.weapon,
+                        payload.visuals.shield,
+                        payload.visuals.armor
+                    ],
+                    is_grouped: false,
+                    is_pk: false,
+                    graphic_id: "player_base",
+                    body: payload.visuals.body
+                } as any);
+                player = this.entityManager.getEntity(payload.entity_id);
+            }
+
+            if (player) {
+                // Force sync the specific visuals provided in SpawnEntity
+                const state = {
+                    bodyId: payload.visuals.body,
+                    faceId: payload.visuals.face,
+                    hairId: payload.visuals.hair,
+                    armorId: payload.visuals.armor,
+                    weaponId: payload.visuals.weapon,
+                    shieldId: payload.visuals.shield,
+                    skinColor: payload.visuals.colors.skin,
+                    faceColor: payload.visuals.colors.skin,
+                    hairColor: payload.visuals.colors.hair,
+                    armorColor: payload.visuals.colors.armor,
+                    direction: ["up", "right", "down", "left"][payload.direction] || "down",
+                    frame: 0
+                };
+                player.updateViewStateForce(state);
             }
         }
     }
@@ -295,6 +325,7 @@ export class GameApp {
         if (this.unsubscribePlayerPosition) {
             this.unsubscribePlayerPosition();
         }
+        if (this.unsubscribeSpawnEntity) this.unsubscribeSpawnEntity();
         if (this.unsubscribeSpawn) this.unsubscribeSpawn();
         if (this.unsubscribeEntityMove) this.unsubscribeEntityMove();
         if (this.unsubscribeEntityRemove) this.unsubscribeEntityRemove();
