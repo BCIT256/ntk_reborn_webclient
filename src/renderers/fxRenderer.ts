@@ -135,26 +135,25 @@ export class FxRenderer {
     const cached = this.textureCache.get(animId);
     if (cached) return cached;
 
-    // Try loading as a spritesheet (JSON) first
-    try {
-      const spritesheet = await PIXI.Assets.load(`/assets/fx/${animId}.json`) as PIXI.Spritesheet;
-      if (spritesheet && spritesheet.textures) {
-        this.textureCache.set(animId, spritesheet);
-        return spritesheet;
-      }
-    } catch {
-      // Not a spritesheet — try as a single PNG
+    if (this.loadedAnimations.has(animId)) {
+      return this.loadedAnimations.get(animId)!;
     }
 
-    // Try loading as a single texture (PNG)
     try {
-      const texture = await PIXI.Assets.load(`/assets/fx/${animId}.png`) as PIXI.Texture;
-      if (texture) {
-        this.textureCache.set(animId, texture);
-        return texture;
+      // Use absolute backend URL
+      const spritesheet = await PIXI.Assets.load(`http://localhost:2011/assets/fx/${animId}.json`) as PIXI.Spritesheet;
+      const textures = Object.values(spritesheet.textures);
+      this.loadedAnimations.set(animId, textures);
+      return textures;
+    } catch (e) {
+      // Fallback: load as single image
+      try {
+        const texture = await PIXI.Assets.load(`http://localhost:2011/assets/fx/${animId}.png`) as PIXI.Texture;
+        this.loadedAnimations.set(animId, [texture]);
+        return [texture];
+      } catch (err) {
+        // No FX asset found
       }
-    } catch {
-      // No FX asset found
     }
 
     return null;

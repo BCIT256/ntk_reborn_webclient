@@ -17,6 +17,8 @@ class AssetManager {
   private spritesheetsLoaded = false;
 
   async init() {
+    await caches.delete('yuroxia-maps');
+    console.log("Map cache forcefully cleared for debugging.");
     console.log("AssetManager initialized with native browser caching");
   }
 
@@ -30,8 +32,8 @@ class AssetManager {
     this.spritesheetsLoaded = true;
 
     const spritesheetConfigs = [
-      { key: "tileset", path: "/assets/sprites/tileset.json" },
-      { key: "player_base", path: "/assets/sprites/player_base.json" },
+      { key: "tileset", path: "http://localhost:2011/assets/sprites/tileset.json" },
+      { key: "player_base", path: "http://localhost:2011/assets/sprites/player_base.json" },
     ];
 
     for (const { key, path } of spritesheetConfigs) {

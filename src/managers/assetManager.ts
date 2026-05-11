@@ -21,6 +21,9 @@ class AssetManagerSingleton {
     public paletteTexture: PIXI.BaseTexture | null = null;
 
     public async fetchAssets() {
+        await caches.delete('yuroxia-maps');
+        console.log("Map cache forcefully cleared for debugging.");
+
         try {
             const [atlasRes, tblRes, palRes, tilecTblRes, tilecAtlasRes, manifestRes] = await Promise.all([
                 fetch('http://localhost:2011/assets/tiles/tile_atlas.json'),
@@ -43,14 +46,14 @@ class AssetManagerSingleton {
         }
 
         try {
-            const sobjTblRes = await fetch('http://localhost:2011/assets/tables/sobj_tbl.json');
+            const sobjTblRes = await fetch('http://localhost:2011/assets/tables/static_objects.json');
             if (sobjTblRes.ok) {
                 this.sobjTbl = await sobjTblRes.json();
             } else {
-                console.error("Failed to fetch sobj_tbl.json", sobjTblRes.status);
+                console.error("Failed to fetch static_objects.json", sobjTblRes.status);
             }
         } catch (error) {
-            console.error("Error loading sobj_tbl.json:", error);
+            console.error("Error loading static_objects.json:", error);
         }
 
         console.log("Metadata loaded successfully");
@@ -107,6 +110,8 @@ class AssetManagerSingleton {
                 this.currentMap = null;
                 return;
             }
+
+            console.log(`Map ${mapId} verified: width=${mapData.width}, height=${mapData.height}, tiles length=${mapData.tiles.length}`);
 
             this.currentMap = mapData;
         } catch (error) {
